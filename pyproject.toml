@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "comfy-mcp"
+version = "0.1.0.dev0"
+description = "A curated, reproducible MCP server for ComfyUI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Liao Ming" }]
+keywords = ["mcp", "comfyui", "agent", "image-generation", "workflow"]
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+  "mcp>=2.3.0",       # ships httpx2 / starlette / uvicorn / pydantic
+  "httpx2>=2.10.0",   # HTTP client, same stack as the SDK (verify import name on D1)
+  "websockets>=13",
+  "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.7",
+  "starlette>=0.40",
+  "uvicorn>=0.30",
+]
+
+[project.scripts]
+comfy-mcp = "comfy_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/comfy_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
