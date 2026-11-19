@@ -26,7 +26,7 @@ from .errors import classify_execution_error, error, from_exception
 from .graph import prompt_hash, validate_prompt
 from .hashes import ModelHasher
 from .jobs import Job, JobStore, Progress
-from .manifest import ManifestStore
+from .manifest import CHECKSUMS, ManifestStore
 from .registry import (
     Registry,
     RegistryError,
@@ -117,7 +117,7 @@ class App:
         self.settings = settings
         self.jobs = JobStore()
         self.manifests = ManifestStore(settings.runs_dir, keep=settings.keep_runs)
-        self.hasher = ModelHasher(settings.models_dir, settings.runs_dir / "checksums.json")
+        self.hasher = ModelHasher(settings.models_dir, settings.runs_dir / CHECKSUMS)
         self._registries: dict[str, tuple[Registry, dict[str, Any]]] = {}
         self._recover()
 

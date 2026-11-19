@@ -22,6 +22,7 @@ from .jobs import Job
 
 SCHEMA = 1
 KEEP = 100
+CHECKSUMS = "checksums.json"  # the digest cache sits in runs/ but is not a manifest
 _FIELDS = (
     "job_id",
     "workflow",
@@ -98,7 +99,7 @@ class ManifestStore:
     def __len__(self) -> int:
         if not self.directory.exists():
             return 0
-        return sum(1 for _ in self.directory.glob("*.json"))
+        return sum(1 for p in self.directory.glob("*.json") if p.name != CHECKSUMS)
 
     def path(self, job_id: str) -> Path:
         return self.directory / f"{job_id}.json"
@@ -145,7 +146,9 @@ class ManifestStore:
         jobs: list[Job] = []
         try:
             paths = sorted(
-                self.directory.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+                (p for p in self.directory.glob("*.json") if p.name != CHECKSUMS),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
             )
         except OSError as exc:
             self.skipped.append(f"{self.directory}: {exc}")
@@ -164,7 +167,11 @@ class ManifestStore:
         """Delete the oldest manifests beyond the keep limit; return how many went."""
         if not self.directory.exists():
             return 0
-        paths = sorted(self.directory.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        paths = sorted(
+            (p for p in self.directory.glob("*.json") if p.name != CHECKSUMS),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
         removed = 0
         for path in paths[self.keep :]:
             with suppress(OSError):

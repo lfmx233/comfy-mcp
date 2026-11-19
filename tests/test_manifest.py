@@ -115,6 +115,19 @@ def test_load_skips_corrupt_files_instead_of_failing(tmp_path: Path) -> None:
     assert len(store.skipped) == 1
 
 
+def test_the_digest_cache_is_not_mistaken_for_a_manifest(tmp_path: Path) -> None:
+    """runs/ holds checksums.json too; loading it as a manifest used to log a warning."""
+    store = ManifestStore(tmp_path / "runs", keep=1)
+    store.write(make_job("a"))
+    (tmp_path / "runs" / "checksums.json").write_text('{"deadbeef": "x"}', encoding="utf-8")
+
+    assert len(store) == 1
+    assert [job.job_id for job in store.load()] == ["a"]
+    assert store.skipped == []
+    assert store.prune() == 0
+    assert (tmp_path / "runs" / "checksums.json").exists()
+
+
 def test_load_of_missing_directory_is_empty(tmp_path: Path) -> None:
     store = ManifestStore(tmp_path / "nope")
     assert store.load() == []
