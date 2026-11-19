@@ -1,7 +1,7 @@
 # comfy-mcp 详细方案（v0.1）
 
 > 本文是可执行设计文档：每个模块做什么、每个工具长什么样、怎么测、几天做完、做完怎么验收。
-> 状态：D1、D2、D3 已完成。修改本文请同步 README 的路线图。
+> 状态：D1、D2、D3、D4 已完成。修改本文请同步 README 的路线图。
 
 ---
 
@@ -278,9 +278,13 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 2. 只处理 `progress` 帧会得到「0, 0, 0, 99」——0.3.60 真正描述进度的是 `progress_state`。
 3. `report_progress` 在没有 request context 时（例如直接 `call_tool` 测试）会抛 `ValueError: Context is not available outside of a request`，上报必须 try/except，不能让进度失败连累任务。
 
-### D4 交付与恢复
-产出：`resources.py`、`manifest.py`、幂等、重启恢复。
-验收：杀进程重启后 `comfy_job` 仍可查；5 图任务上下文 < 20KB。
+### D4 交付与恢复 ✅（2026-11-19 完成）
+产出：`manifest.py`（`to_record`/`from_record`/`ManifestStore`：原子写、按 mtime 的 `load()`、`prune()`）、`hashes.py`（`ModelHasher` + `digest_file`，`size+mtime_ns` 缓存到 `runs/checksums.json`）、`resources.py`（魔数嗅探 / 文件头读尺寸 / 缩略重编码 / `ImageContent` 与 `ResourceLink` 构造）、`server.py` 的 `_content_result`/`_complete`/`App.record`/`_recover`/`comfy://output/{prompt_id}/{index}` 模板资源、`jobs.py` 的 `adopt`/`find_by_prompt`/失败结果不进幂等表、`config.py` 的 `COMFY_MCP_MODELS_DIR` 与 `COMFY_MCP_KEEP_RUNS`、`scripts/verify_d4.py`。
+验收：143 passed（D3 的 103 + 40）；`ruff check`/`ruff format` 全绿；真机 4060 上 `verify_d4.py` 11 项全绿——出图 1.91s、首图 32416 字节（原图 373196，小 11.5 倍）、`comfy://output` 取回原始 PNG 且 `(512, 512)`、模型 sha256 前 12 位 `7f96a1a9ca9b`/`3186527b2b9a` 来自 2 个文件的真实摘要、子进程重启后 `comfy_job` 仍答 succeeded、4 图任务 payload 2127 字节 < 20KB。
+备注（D4 的三个教训）：
+1. 工具返回 `CallToolResult` 才能一条消息里同时给文本、图片、资源链接；SDK 对注解为 `CallToolResult` 的函数原样透传（不生成 outputSchema、不校验），这是"既想有 structuredContent 又想多 content 块"的唯一干净路径。
+2. 幂等命中的分支最容易漏内容：参数一样时直接返回旧 job，结果**没有首图**——第二次调用的人要的是同一张图，重放必须重新取图。
+3. 缩略只看长边是不够的：512×512 不触发缩放，但 PNG 仍有 373KB。加一条"文件超过 48KB 就重编码"，同一张图降到 32KB；重编码反而变大时保留原图。
 
 ### D5 真机联调
 产出：接一台真实 ComfyUI，跑 3 个工作流，录 demo。
@@ -298,7 +302,9 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 - [ ] 超时后 `/queue` 无残留
 - [ ] 同 idempotency_key 两次调用只跑一次
 - [ ] manifest 含 workflow_hash / 解析后 seed / 模型文件 / 耗时
-- [ ] 5 图任务上下文增量 < 20KB
+- [x] 5 图任务上下文增量 < 20KB（实测 4 图 2127 字节）
+- [x] 杀进程重启后 `comfy_job` 仍可查（实测 job=a93c70843dd1）
+- [x] 首图缩略小于原图（32416 vs 373196 字节）
 - [ ] 无 GPU 环境 `pytest` 全绿，CI 3.11 / 3.12 通过
 - [ ] README 一条命令可复现 demo
 
@@ -324,7 +330,7 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 4. *进度怎么算的？* 节点数加权 + 节点内 value/max，单调递增；ws 断开降级成 /history 轮询。
 5. *超时后 GPU 真的停了吗？* interrupt 打断执行、queue delete 清排队，测试里断言 /queue 为空。
 6. *为什么不做任意 graph？* 自定义节点等于任意代码执行，模型能构造 graph 就是 RCE 面；白名单把攻击面收敛到已知工作流。
-7. *大图怎么处理？* 首图缩到 512 给 ImageContent，其余 ResourceLink，客户端按需取；5 图任务 < 20KB。
+7. *大图怎么处理？* 首图给 ImageContent：长边超 512 就缩放，文件超 48KB 就重编码（512×512 PNG 373KB → JPEG 32KB），其余给 ResourceLink 按需取；5 图任务 < 20KB。
 8. *没 GPU 怎么测？* fake ComfyUI 实现 6 个端点 + 录制 ws 帧回放，CI 全绿。
 
 ## 14. 开放问题
