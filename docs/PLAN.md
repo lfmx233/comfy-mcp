@@ -286,9 +286,15 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 2. 幂等命中的分支最容易漏内容：参数一样时直接返回旧 job，结果**没有首图**——第二次调用的人要的是同一张图，重放必须重新取图。
 3. 缩略只看长边是不够的：512×512 不触发缩放，但 PNG 仍有 373KB。加一条"文件超过 48KB 就重编码"，同一张图降到 32KB；重编码反而变大时保留原图。
 
-### D5 真机联调
-产出：接一台真实 ComfyUI，跑 3 个工作流，录 demo。
-验收：README 命令原样可复现；progress 与真实执行同步。
+### D5 真机 demo ✅（2026-11-19 完成）
+产出：`scripts/demo.py`（`--only` 单工作流、`--repro JOB_ID` 按 manifest 重跑并比 sha256、联系人拼图 `demo/contact-sheet.jpg`、`demo/report.json`、`demo/transcript.txt`）、`docs/DEMO.md`（演示流程 + 三分钟口播稿）、`manifest.py`/`server.py` 的 checksums 误读修复（`CHECKSUMS` 常量 + 三处 glob 跳过）。
+验收：真机 4060 Laptop 8GB 上三个工作流全绿——`txt2img_anime` 8.06s / 512×512 / 420KB / `sha256:b209d0c1442a`，`img2img` 4.76s / 768×768 / `sha256:b1e243cb684b`，`sdxl_txt2img` 33.75s / 768×768 / `sha256:54781cdf00c9`；全程 56.9s。ws 51 帧、18 次进度变化、单调 12.5 → 62.5 → 100.0。复现：同一进程重跑 0.0s（节点缓存）、**重启 ComfyUI 后 5.25s（真重算）**，两次都 `REPRO: IDENTICAL`。144 passed；`ruff` 全绿。
+备注（D5 的三条硬教训）：
+1. 8GB 显存上「模型来回换」会退化到分钟级：全新进程跑 SDXL 768×768 只要 33.75s，同一进程里 SD1.5 ↔ SDXL 交替几次后 SDXL 连续两次 >420s 超时（`/history` 里 `execution_start` → `execution_interrupted` 相隔 534 秒，说明是采样在换页，不是排队；启动时 `vram_free` 只剩 0.88–2.62GB）。demo 前必须重启 ComfyUI，README 已写明。
+2. `-1` 的 seed 会让「同参数」不成立：SDXL 工作流的 `refiner_seed` 默认 `-1`，每次随机，等于每次换一个 refiner 噪声。要复现就得把它钉成常数 7 并写进 yaml 的 default——「可复现」靠的是参数完整，不是运气。
+3. 冷启动才是真复现：同进程重跑会命中 ComfyUI 的内存节点缓存（0.0s），什么都证明不了。杀进程重启后 `vram_free` 回到 6.94GB，重跑耗时 5.25s、字节 sha256 完全一致，这才说明 manifest 里的参数自己就够用。另外 `runs/checksums.json` 曾被当成 manifest 读，启动时刷 `unsupported schema None` warning，加文件名排除才干净。
+
+### D6 发布
 
 ### D6 发布
 产出：README 定稿（含对比表、Non-goals）、demo gif、PyPI 包、`server.json` 上架 MCP Registry。
@@ -298,7 +304,7 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 
 - [ ] 6 个工具在 Claude Desktop / Cursor 可见，模型能正确选中
 - [ ] 非法参数在提交前失败，错误含 `hint` 告诉模型怎么改
-- [ ] 真实工作流跑通，progress 单调递增，ws 断开后仍出结果
+- [x] 真实工作流跑通，progress 单调递增，ws 断开后仍出结果（D5：3 个工作流，51 帧 ws，18 次进度变化）
 - [ ] 超时后 `/queue` 无残留
 - [ ] 同 idempotency_key 两次调用只跑一次
 - [ ] manifest 含 workflow_hash / 解析后 seed / 模型文件 / 耗时
@@ -306,7 +312,7 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 - [x] 杀进程重启后 `comfy_job` 仍可查（实测 job=a93c70843dd1）
 - [x] 首图缩略小于原图（32416 vs 373196 字节）
 - [ ] 无 GPU 环境 `pytest` 全绿，CI 3.11 / 3.12 通过
-- [ ] README 一条命令可复现 demo
+- [x] README 一条命令可复现 demo（D5：`scripts/demo.py`，冷启动后 `--repro` 字节一致）
 
 ## 12. 风险与缓解
 

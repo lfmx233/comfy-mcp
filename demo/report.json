@@ -1,0 +1,208 @@
+{
+  "generated_at": "2026-11-19T23:23:32+0800",
+  "took_s": 56.9,
+  "instance": {
+    "url": "http://127.0.0.1:8188",
+    "comfyui_version": "0.3.60",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "pytorch": "2.8.0+cu129",
+    "device": "cuda:0 NVIDIA GeForce RTX 4060 Laptop GPU : cudaMallocAsync",
+    "vram_gb": 8.0,
+    "queue": {
+      "running": 0,
+      "pending": 0
+    }
+  },
+  "runs": [
+    {
+      "workflow": "txt2img_anime",
+      "status": "succeeded",
+      "job_id": "7af39798e121",
+      "prompt_id": "9fb48196-39f8-466b-8fb5-fd9eff3c5fe2",
+      "elapsed_s": 8.06,
+      "wall_s": 8.13,
+      "outputs": 1,
+      "width": 512,
+      "height": 512,
+      "bytes": 430446,
+      "sha256": "b209d0c1442a7b503c08d8bf002bf9842a9bfcbc4ead64bbbff46ba6683e1fcb",
+      "workflow_hash": "sha256:6a6f36af52f74f268c20078954e053ce6bb9ba3374824f627f52e990b6aeb91e",
+      "params": {
+        "prompt": "1girl, solo, silver hair, blue eyes, school uniform, cherry blossoms, best quality",
+        "negative": "((nsfw)),sketches,tattoo,(beard:1.3),(EasyNegative:1.3),badhandv4,(Teeth:1.3), (worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality, jpeg artifacts,signature,watermark,username,blurry",
+        "seed": 424242,
+        "steps": 8,
+        "cfg": 7.0,
+        "width": 512,
+        "height": 512,
+        "batch_size": 1,
+        "ckpt_name": "anything-v5-PrtRE.safetensors",
+        "lora_name": "BArtstyleV7-EXP.safetensors",
+        "lora_strength": 0.8
+      },
+      "models": [
+        "anything-v5-PrtRE.safetensors",
+        "BArtstyleV7-EXP.safetensors"
+      ]
+    },
+    {
+      "workflow": "img2img",
+      "status": "succeeded",
+      "job_id": "c9c95f29592a",
+      "prompt_id": "5dc32576-8afa-45e3-bfd3-25d4b82a7cba",
+      "elapsed_s": 4.76,
+      "wall_s": 4.81,
+      "outputs": 1,
+      "width": 768,
+      "height": 768,
+      "bytes": 834998,
+      "sha256": "b1e243cb684b6004c5205d539f8c8da8ed37c49ac57aabd0e5176e8988c28a74",
+      "workflow_hash": "sha256:b49135524d7644d37293564a3fa5ef457356df26cd6682c2d865258356143480",
+      "params": {
+        "prompt": "1girl, solo, silver hair, blue eyes, school uniform, cherry blossoms, best quality",
+        "negative": "((nsfw)),sketches,tattoo,(beard:1.3),(EasyNegative:1.3),badhandv4,(Teeth:1.3), (worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality, jpeg artifacts,signature,watermark,username,blurry",
+        "image": "example.png",
+        "seed": 777,
+        "steps": 8,
+        "cfg": 7.0,
+        "denoise": 0.55,
+        "ckpt_name": "anything-v5-PrtRE.safetensors",
+        "lora_name": "BArtstyleV7-EXP.safetensors",
+        "lora_strength": 0.9
+      },
+      "models": [
+        "anything-v5-PrtRE.safetensors",
+        "BArtstyleV7-EXP.safetensors",
+        "vae-ft-mse-840000-ema-pruned.safetensors"
+      ]
+    },
+    {
+      "workflow": "sdxl_txt2img",
+      "status": "succeeded",
+      "job_id": "8c8fbfadfc3e",
+      "prompt_id": "6271c377-30e0-4170-ae03-23afe5fa8261",
+      "elapsed_s": 33.75,
+      "wall_s": 33.85,
+      "outputs": 1,
+      "width": 768,
+      "height": 768,
+      "bytes": 900443,
+      "sha256": "54781cdf00c92ce66fb4a23e340cbb469becfbad361bb944e1c65daaad975c88",
+      "workflow_hash": "sha256:5fc4c3c2afd802b0303462b99091f732c917555007d4e61f05e23d6257530fb3",
+      "params": {
+        "prompt": "1girl, solo, silver hair, blue eyes, school uniform, cherry blossoms, best quality",
+        "negative": "((nsfw)),sketches,tattoo,(beard:1.3),(EasyNegative:1.3),badhandv4,(Teeth:1.3), (worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality, jpeg artifacts,signature,watermark,username,blurry",
+        "seed": 2026,
+        "refiner_seed": 7,
+        "steps": 8,
+        "cfg": 5.0,
+        "width": 768,
+        "height": 768,
+        "ckpt_name": "counterfeitxl_v10.safetensors",
+        "refiner_name": "sd_xl_refiner_1.0.safetensors"
+      },
+      "models": [
+        "sd_xl_refiner_1.0.safetensors",
+        "counterfeitxl_v10.safetensors"
+      ]
+    }
+  ],
+  "progress": {
+    "prompt_id": "0d62e1d8-38dd-4e44-8c37-52de914f9892",
+    "frames": 51,
+    "kinds": {
+      "status": 3,
+      "execution_start": 1,
+      "execution_cached": 1,
+      "progress_state": 26,
+      "executing": 8,
+      "progress": 10,
+      "executed": 1,
+      "execution_success": 1
+    },
+    "total_s": 7.91,
+    "marks": [
+      [
+        4.18,
+        12.5
+      ],
+      [
+        4.18,
+        25.0
+      ],
+      [
+        4.36,
+        37.5
+      ],
+      [
+        4.65,
+        50.0
+      ],
+      [
+        4.67,
+        62.5
+      ],
+      [
+        5.93,
+        63.7
+      ],
+      [
+        5.98,
+        65.0
+      ],
+      [
+        6.11,
+        66.2
+      ],
+      [
+        6.24,
+        67.5
+      ],
+      [
+        6.38,
+        68.8
+      ],
+      [
+        6.51,
+        70.0
+      ],
+      [
+        6.65,
+        71.2
+      ],
+      [
+        6.8,
+        72.5
+      ],
+      [
+        6.94,
+        73.8
+      ],
+      [
+        7.07,
+        75.0
+      ],
+      [
+        7.17,
+        87.5
+      ],
+      [
+        7.45,
+        99.0
+      ],
+      [
+        7.45,
+        100.0
+      ]
+    ],
+    "final": 100.0
+  },
+  "repro": {
+    "job_id": "73576f153038",
+    "sha256": "b209d0c1442a7b503c08d8bf002bf9842a9bfcbc4ead64bbbff46ba6683e1fcb",
+    "same_as": "7af39798e121",
+    "identical": true,
+    "wall_s": 1.37,
+    "note": "recomputed"
+  }
+}

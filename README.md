@@ -5,7 +5,7 @@
 ![status](https://img.shields.io/badge/status-v0.1--dev-orange)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![tests](https://img.shields.io/badge/tests-143%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-144%20passed-brightgreen)
 
 ## 这是什么
 
@@ -26,10 +26,10 @@
 | D2 | UI→API 图转换 + 工作流注册表（3 个真机工作流） | ✅ 2026-11-19 |
 | D3 | 6 个工具 + 进度映射 + 10 个错误码 + 假服务器真执行 | ✅ 2026-11-19 |
 | D4 | 交付、manifest 落盘、重启恢复、模型 sha256、首图缩略与资源链接 | ✅ 2026-11-19 |
-| D5 | 真机联调与端到端 demo（本机 4060 已连通） | ⏳ 下一步 |
-| D6 | 发布（PyPI + MCP Registry） | ⏳ |
+| D5 | 真机端到端 demo：3 个工作流 + 真实进度 + 冷启动复现（本机 4060，全程 57s） | ✅ 2026-11-19 |
+| D6 | 发布（PyPI + MCP Registry） | ⏳ 下一步 |
 
-每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里：D1 见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)，D2 见 [iterations/D2-图转换与注册表.md](iterations/D2-图转换与注册表.md)，D3 见 [iterations/D3-工具与进度.md](iterations/D3-工具与进度.md)，D4 见 [iterations/D4-交付与恢复.md](iterations/D4-交付与恢复.md)。
+每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里：D1 见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)，D2 见 [iterations/D2-图转换与注册表.md](iterations/D2-图转换与注册表.md)，D3 见 [iterations/D3-工具与进度.md](iterations/D3-工具与进度.md)，D4 见 [iterations/D4-交付与恢复.md](iterations/D4-交付与恢复.md)，D5 见 [iterations/D5-真机Demo.md](iterations/D5-真机Demo.md)。
 
 ## 为什么不是「又一个 ComfyUI MCP」
 
@@ -247,6 +247,45 @@ python scripts/smoke_d1.py
 
 模型 sha256 不便宜（几个 GB），所以 `runs/checksums.json` 按 `size + mtime_ns` 缓存摘要：文件没动就不再读盘。实测第二次运行不再重算。
 
+## Demo（D5）
+
+一条命令，三个工作流，全程约 1 分钟（RTX 4060 Laptop 8GB）：
+
+```powershell
+$env:COMFY_MCP_MODELS_DIR="D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
+.\.venv\Scripts\python.exe scripts\demo.py
+```
+
+![demo](demo/contact-sheet.jpg)
+
+```text
+== 2. 3 个工作流各跑一次 ==
+  [ok] txt2img_anime  7af39798e121   8.06s  512x512  420 KB  sha256:b209d0c1442a
+  [ok] img2img        c9c95f29592a   4.76s  768x768  815 KB  sha256:b1e243cb684b
+  [ok] sdxl_txt2img   8c8fbfadfc3e  33.75s  768x768  879 KB  sha256:54781cdf00c9
+  [ok] txt2img_anime  73576f153038   1.4s  512x512  420 KB  sha256:b209d0c1442a  ← 同一份 manifest 重跑
+  [ok] ws 51 frames / 18 progress updates / 7.9s: 12.5 → 62.5 → 100.0
+总耗时 56.9s
+DEMO: PASS
+```
+
+它留下四样东西：`demo/outputs/*.png`（原图）、`demo/contact-sheet.jpg`（上面这张拼图）、`demo/report.json`（每个 job 的 id / 耗时 / 字节 sha256 / 参数）、`demo/transcript.txt`（终端原文）。
+
+**复现验证**——这才是 D5 真正想证的那句话：
+
+```powershell
+python scripts/demo.py --repro 7af39798e121
+```
+
+从 `runs/<job_id>.json` 把参数读出来，换一个 idempotency key 重新提交，再比 sha256。实测：
+
+| 场景 | 耗时 | 结果 |
+| --- | --- | --- |
+| 同一进程内重跑（ComfyUI 节点缓存命中） | 0.0s | `REPRO: IDENTICAL` |
+| **重启 ComfyUI 后重跑**（缓存清空，真重算） | 5.25s | `REPRO: IDENTICAL` |
+
+冷启动那次是关键：ComfyUI 的缓存是内存态，重启就没了；还能画出同一张图，靠的是 manifest 里的参数完整（含解析后的 seed），不是缓存。完整演示流程与口播稿见 [docs/DEMO.md](docs/DEMO.md)。
+
 ## 加一个工作流
 
 两步：把 ComfyUI 里导出的工作流 json 放进 `workflows/`，再写一个**同名** yaml 声明「允许 Agent 改哪些参数」。
@@ -318,7 +357,7 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
 ## 开发与测试
 
 ```bash
-pytest                      # 143 个用例，全离线，不需要 GPU
+pytest                      # 144 个用例，全离线，不需要 GPU
 ruff check . && ruff format --check .
 
 # 跑假 ComfyUI（Starlette），再用 curl 或 smoke 脚本验证
@@ -363,6 +402,11 @@ $env:PYTHONPATH="src"; python scripts/verify_d3.py --timeout-check
 # D4：真机验证 manifest / 尺寸 / 资源 / 缩略 / 重启恢复 / 5 图预算
 # 需要 COMFY_MCP_MODELS_DIR 指向 ComfyUI 的 models/ 才会算 sha256
 $env:PYTHONPATH="src"; python scripts/verify_d4.py
+
+# D5：端到端 demo（3 个工作流 + ws 进度 + 同参数复现），产物写 demo/
+python scripts/demo.py
+python scripts/demo.py --only txt2img_anime      # 只跑一个，调试用
+python scripts/demo.py --repro 7af39798e121      # 用 runs/ 里的 manifest 重跑并比 sha256
 ```
 
 D3 的真机输出（4060 Laptop，SD1.5 512×512 4 步）：
@@ -398,6 +442,8 @@ D4 的真机输出（同一台 4060，SD1.5 512×512 6 步）：
 [ok] four outputs fit in the context budget (2127 < 20000 bytes) — 4 outputs, 2127 bytes of JSON
 VERIFY_D4: PASS
 ```
+
+D5 的真机输出（三个工作流 + 冷启动复现）见上文「Demo（D5）」一节，完整终端记录在 `demo/transcript.txt` 与 `demo/report.json`。
 
 详细设计与验收标准见 [docs/PLAN.md](docs/PLAN.md)。
 
