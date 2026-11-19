@@ -15,7 +15,7 @@
 |---|---|---|
 | `scripts/demo.py` | 420 | 五段式 demo：实例 → 跑活 → 进度 → 复现 → 产物；`--only` 选工作流、`--repro JOB_ID [--expect SHA256]` 按 manifest 重跑 |
 | `docs/DEMO.md` | 100 | 前置、一条命令、五段说明、产物清单、复现、三分钟口播稿、已知限制 |
-| `demo/contact-sheet.jpg` | — | 三张图拼一张（1584×550，221633 字节），README 引用 |
+| `demo/contact-sheet.jpg` | — | 三张图拼一张（1584×550，221623 字节），README 引用 |
 | `demo/report.json` | — | 每个 job 的 id / 耗时 / 字节数 / sha256 / 参数 / 进度采样点 |
 | `demo/transcript.txt` | — | 复现那一段的终端原文 |
 | `src/comfy_mcp/manifest.py` | 180（+29） | `CHECKSUMS = "checksums.json"`；`__len__` / `load` / `prune` 三处 glob 跳过它 |
@@ -40,7 +40,7 @@
 == 4. 复现 ==
   [ok] 73576f153038  1.37s  sha256:b209d0c1442a  同 7af39798e121 → 一致
 == 5. 产物 ==
-  [ok] demo/contact-sheet.jpg 1584x550 221633 bytes
+  [ok] demo/contact-sheet.jpg 1584x550 221623 bytes
 总耗时 56.9s
 DEMO: PASS
 ```
@@ -92,13 +92,16 @@ skipping unreadable manifest: runs\checksums.json: unsupported schema None (this
 ```
    每次启动刷一行，不致命但很脏。根因：`load()` / `prune()` / `__len__()` 都按 `runs/*.json` glob，而摘要缓存恰好也住在 `runs/` 里。解法：`manifest.py` 里加常量 `CHECKSUMS = "checksums.json"`，三处 glob 都排除它，`server.py` 用同一个常量拼路径（避免两边字符串各写一遍再次漂移）。补了回归用例 `test_the_digest_cache_is_not_mistaken_for_a_manifest`。
 
-3. **`--repro` 的耗时一度打出 1794463913.6s。**
+3. **拼图的标签说的是缩放后的尺寸，768 的图自称 512。**
+   三块面板统一缩放到 512 高，`draw.text` 却用了 `tile.width x tile.height`（缩放后），于是 sdxl 与 img2img 明明 768×768 也被标成 512×512。这种错不会让任何测试变红，只会让看的人以为「三个工作流都出 512」。解法：循环里顺手记 `sizes.append((image.width, image.height))`，标签用原始尺寸。**标签要陈述事实，不是陈述你刚做完的变换。**
+
+4. **`--repro` 的耗时一度打出 1794463913.6s。**
    section 4 误用了 section 2 的 `started` 时间戳（那是另一个作业的起点），要单独 `t0`。教训：计时变量必须和自己的作业同生命周期，别图省事复用。
 
-4. **demo.py 的 `passed` 判定一开始漏了 `--repro`。**
+5. **demo.py 的 `passed` 判定一开始漏了 `--repro`。**
    只跑 `--only txt2img_anime` 时没有 section 4，`session.repro` 是空 dict，`repro.get("identical")` 直接抛 KeyError 的写法被改成 `.get("identical", True)`；同时把 section 4 抽成 `check_repro()`，只有真跑过 txt2img_anime 才执行，否则打印 `[skip]`。
 
-5. **用 run_code 的 JS 模板字符串写 README 里的 Markdown 代码块，整批 edit 全废。**
+6. **用 run_code 的 JS 模板字符串写 README 里的 Markdown 代码块，整批 edit 全废。**
 ```text
 Error: code run failed (exception): Expected ',', got 'numeric literal'
 ```
