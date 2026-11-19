@@ -5,7 +5,7 @@
 ![status](https://img.shields.io/badge/status-v0.1--dev-orange)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![tests](https://img.shields.io/badge/tests-22%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-76%20passed-brightgreen)
 
 ## 这是什么
 
@@ -23,13 +23,13 @@
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | D1 | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
-| D2 | UI→API 图转换 + 工作流注册表 | ⏳ 下一步 |
-| D3 | 6 个工具 + 进度映射 | ⏳ |
+| D2 | UI→API 图转换 + 工作流注册表（3 个真机工作流） | ✅ 2026-11-19 |
+| D3 | 6 个工具 + 进度映射 | ⏳ 下一步 |
 | D4 | 交付、manifest、幂等与恢复 | ⏳ |
 | D5 | 真机联调（本机 4060 已连通） | ⏳ |
 | D6 | 发布（PyPI + MCP Registry） | ⏳ |
 
-每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里，D1 的记录见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)。
+每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里：D1 见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)，D2 见 [iterations/D2-图转换与注册表.md](iterations/D2-图转换与注册表.md)。
 
 ## 为什么不是「又一个 ComfyUI MCP」
 
@@ -177,14 +177,50 @@ python scripts/smoke_d1.py
 | 工具 | 用途 | 阻塞 | 状态 |
 |---|---|---|---|
 | `comfy_status` | 实例版本、GPU 显存、队列长度 | 否 | ✅ v0.1-dev |
-| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 | D2 |
-| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 | D2 |
+| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 | D3（注册表已就绪） |
+| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 | D3（校验逻辑已就绪） |
 | `comfy_run` | 跑一次工作流，带进度，可设超时 | 是 | D3 |
 | `comfy_job` | 查任务状态（重启后仍可用） | 否 | D3 |
 | `comfy_cancel` | 取消任务并清队列 | 否 | D3 |
 
 统一错误结构（9 个码）：`INVALID_PARAM` `UNKNOWN_WORKFLOW` `NODE_MISSING` `MODEL_MISSING` `QUEUE_FULL` `TIMEOUT` `CUDA_OOM` `INSTANCE_DOWN` `CANCELED`，返回
 `{code, message, hint, retryable, job_id}`，`hint` 用来告诉模型下一步怎么改。
+
+## 加一个工作流
+
+两步：把 ComfyUI 里导出的工作流 json 放进 `workflows/`，再写一个**同名** yaml 声明「允许 Agent 改哪些参数」。
+
+```yaml
+# workflows/txt2img_anime.yaml —— 文件名必须和 txt2img_anime.json 一致
+name: txt2img_anime
+description: 二次元文生图，SD1.5 + 风格 LoRA
+tags: [image, anime, txt2img]
+params:
+  prompt:
+    type: string
+    path: 5.inputs.text          # 节点 id . inputs . 字段名
+    required: true
+    max_len: 800
+  steps:
+    type: integer
+    path: 6.inputs.steps
+    default: 30
+    minimum: 1
+    maximum: 100
+  width:
+    type: integer
+    paths: [7.inputs.width, 7.inputs.height]   # 一个参数写多个位置
+    default: 512
+    enum: [512, 640, 768, 896, 1024]
+```
+
+要点：
+
+- `path` / `paths` 二选一。路径在**启动时**校验，写错直接报错，不会等到运行时才发现。
+- `seed` 的 `default: -1` 表示每次随机：先解析成具体整数，再拿它算幂等键与 manifest。
+- 模型文件名（`ckpt_name` 等）也是普通参数；指向本机没有的文件会在校验时报 `MODEL_MISSING`，并提示本机可用的前几个。
+- 图可以是 ComfyUI 的普通导出（带前端控件），也可以是 API 格式；两种都吃，前端控件与 API 槽位的对齐是自动的。
+- 参数不在 yaml 里声明，Agent 就改不动 —— 这是这个项目「敢在生产里用」的全部来源。
 
 ## 架构
 
@@ -203,7 +239,7 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
  ComfyUI（本机 8188 / 远端 / 多实例）
 ```
 
-当前仓库已有 `config.py` / `client.py` / `server.py`，其余模块随里程碑补上。
+当前仓库已有 `config.py` / `client.py` / `server.py` / `graph.py` / `registry.py`，`jobs.py` / `manifest.py` 随 D3、D4 补上。
 
 ## 设计取舍
 
@@ -216,7 +252,7 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
 ## 开发与测试
 
 ```bash
-pytest                      # 22 个用例，全离线，不需要 GPU
+pytest                      # 76 个用例，全离线，不需要 GPU
 ruff check . && ruff format --check .
 
 # 跑假 ComfyUI（Starlette），再用 curl 或 smoke 脚本验证
@@ -248,6 +284,10 @@ pip install --no-cache-dir --force-reinstall ".[dev]"
 # 先起 ComfyUI，例如秋叶整合包
 # D:\AIGC\ComfyUI-aki-v2\python\python.exe main.py --listen 127.0.0.1 --port 8188
 COMFY_MCP_INSTANCES=nope.yaml COMFYUI_URL=http://127.0.0.1:8188 python scripts/smoke_d1.py
+
+# 校验 + 真实提交（提交后立即取消，不会真的烧 GPU）
+python scripts/verify_d2.py --dry-run   # 只校验，不提交
+python scripts/verify_d2.py             # 校验 + POST /prompt + 立刻 /interrupt
 ```
 
 详细设计与验收标准见 [docs/PLAN.md](docs/PLAN.md)。

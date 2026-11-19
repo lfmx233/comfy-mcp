@@ -1,7 +1,7 @@
 # comfy-mcp 详细方案（v0.1）
 
 > 本文是可执行设计文档：每个模块做什么、每个工具长什么样、怎么测、几天做完、做完怎么验收。
-> 状态：D1 进行中。修改本文请同步 README 的路线图。
+> 状态：D1、D2 已完成。修改本文请同步 README 的路线图。
 
 ---
 
@@ -261,9 +261,12 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 验收：`pytest` 绿（22 passed）；fake 服务器能被 curl 通；`comfy_status` 能对 fake 返回结构化数据；同一份代码对真机 127.0.0.1:8188（ComfyUI 0.3.60 / RTX 4060）同样返回 structuredContent。
 备注：`httpx` 未安装，SDK 依赖的是 `httpx2`（import 名 `httpx2`）；pytest 需 `pythonpath = ["src", "."]` 才能 import `tests.fake_comfy`。
 
-### D2 图转换与注册表
-产出：`graph.py`、`registry.py`、`workflows/txt2img_anime.{json,yaml}`、2 个额外工作流。
-验收：3 个真实导出文件转换后能被真 ComfyUI `/prompt` 接受（object_info 校验通过）；哈希稳定。
+### D2 图转换与注册表 ✅（2026-11-19 完成）
+产出：`graph.py`（UI 导出 → API prompt、校验、稳定哈希）、`registry.py`（sidecar 参数白名单）、`workflows/{txt2img_anime,img2img,sdxl_txt2img}.{json,yaml}`、`tests/test_graph.py`（22）、`tests/test_registry.py`（32）、`scripts/verify_d2.py`。
+验收：76 passed；`ruff check` / `ruff format --check` 全绿；3 个工作流对真机 1810 个节点类校验零 issue，且都被 `/prompt` 接受（`5fa6621d…`、`8138b41e…`、`1a835cd2…`，随即 `/queue delete` + `/interrupt`，队列回到 0+0）；哈希 = `sha256:` + 规范化 JSON 的 sha256，重载与节点顺序无关。
+备注（D2 的两个真实教训）：
+1. UI 的 `widgets_values` 比 API 的 widget 槽多出「隐藏前端控件」（seed 的 `control_after_generate`、`dynamicPrompts`、LoadImage 的上传按钮、CLIPTextEncodeSDXL 的两个 toggle 且都排在末尾）。按 flagged 输入贪心跳值会在 SDXL/自定义节点上错位，改为**按值类型对齐的 DP 搜索**（宁可显式失败也不静默错位）。
+2. 模型缺失必须在 `validate_prompt` 报 `MODEL_MISSING`，不能在转换期报 `GRAPH_WIDGET_MISMATCH`——否则「合法的缺模型」和「自定义节点顺序不同」混成一个错。
 
 ### D3 工具与进度
 产出：`server.py` 6 个工具、`jobs.py`、`errors.py`、进度映射。
