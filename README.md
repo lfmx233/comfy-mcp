@@ -17,6 +17,17 @@
 
 一句话：官方把 ComfyUI 暴露给了 Agent，本项目让 Agent **敢**用它。
 
+## 进度
+
+| 里程碑 | 内容 | 状态 |
+|---|---|---|
+| D1 | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
+| D2 | 图转换与工作流注册表 | ⏳ |
+| D3 | 6 个工具 + 进度映射 | ⏳ |
+| D4 | 交付、manifest、幂等与恢复 | ⏳ |
+| D5 | 真机联调（本机 4060 已连通） | ⏳ |
+| D6 | 发布（PyPI + MCP Registry） | ⏳ |
+
 ## 为什么不是「又一个 ComfyUI MCP」
 
 Comfy Org 官方已有 [comfy-mcp](https://github.com/Comfy-Org/comfy-mcp)（41 个工具，基于 comfy-cli，仍在活跃更新）。

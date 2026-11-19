@@ -195,8 +195,8 @@ sidecar 的 `path` 形如 `"3.inputs.seed"`，注入时按路径写值；路径�
 async with asyncio.timeout(timeout_s):
     await wait_for_completion(pid)
 # on TimeoutError:
-await client.interrupt()                    # 打断当前执行
-await client.queue_delete([pid])            # 清排队
+await client.interrupt()  # 打断当前执行
+await client.queue_delete([pid])  # 清排队
 return error("TIMEOUT", retryable=True, job_id=job_id)
 ```
 
@@ -256,9 +256,10 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 
 ## 10. 里程碑
 
-### D1 骨架与地基
-产出：仓库、`pyproject.toml`、`config.py`、`client.py`（HTTP + ws）、`tests/fake_comfy/app.py`。
-验收：`pytest` 绿；fake 服务器能被 curl 通；`comfy_status` 能对 fake 返回结构化数据。
+### D1 骨架与地基 ✅（2026-11-19 完成）
+产出：仓库、`pyproject.toml`、`config.py`、`client.py`（HTTP + ws）、`server.py`（`comfy_status`）、`tests/fake_comfy/app.py`。
+验收：`pytest` 绿（22 passed）；fake 服务器能被 curl 通；`comfy_status` 能对 fake 返回结构化数据；同一份代码对真机 127.0.0.1:8188（ComfyUI 0.3.60 / RTX 4060）同样返回 structuredContent。
+备注：`httpx` 未安装，SDK 依赖的是 `httpx2`（import 名 `httpx2`）；pytest 需 `pythonpath = ["src", "."]` 才能 import `tests.fake_comfy`。
 
 ### D2 图转换与注册表
 产出：`graph.py`、`registry.py`、`workflows/txt2img_anime.{json,yaml}`、2 个额外工作流。

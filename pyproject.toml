@@ -17,8 +17,8 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-  "mcp>=2.3.0",       # ships httpx2 / starlette / uvicorn / pydantic
-  "httpx2>=2.10.0",   # HTTP client, same stack as the SDK (verify import name on D1)
+  "mcp>=2.3.0",       # ships starlette / uvicorn / pydantic / httpx2
+  "httpx2>=2.10.0",   # HTTP client; import name is httpx2, not httpx
   "websockets>=13",
   "pyyaml>=6",
 ]
@@ -47,4 +47,6 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+pythonpath = ["src", "."]
