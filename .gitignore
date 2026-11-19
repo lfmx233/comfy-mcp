@@ -9,6 +9,7 @@ venv/
 
 # Tooling
 .pytest_cache/
+pytest-of-*/
 .ruff_cache/
 .mypy_cache/
 .coverage
@@ -17,6 +18,8 @@ htmlcov/
 # Project runtime artifacts
 runs/
 *.log
+*.tmp
+pip-ephem-wheel-cache-*/
 
 # Secrets & local config
 .env

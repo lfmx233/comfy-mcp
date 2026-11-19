@@ -2,9 +2,10 @@
 
 > 让 Agent 安全、可复现地驱动 ComfyUI。
 
-![status](https://img.shields.io/badge/status-v0.1%20WIP-orange)
+![status](https://img.shields.io/badge/status-v0.1--dev-orange)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
+![tests](https://img.shields.io/badge/tests-22%20passed-brightgreen)
 
 ## 这是什么
 
@@ -22,11 +23,13 @@
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | D1 | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
-| D2 | 图转换与工作流注册表 | ⏳ |
+| D2 | UI→API 图转换 + 工作流注册表 | ⏳ 下一步 |
 | D3 | 6 个工具 + 进度映射 | ⏳ |
 | D4 | 交付、manifest、幂等与恢复 | ⏳ |
 | D5 | 真机联调（本机 4060 已连通） | ⏳ |
 | D6 | 发布（PyPI + MCP Registry） | ⏳ |
+
+每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里，D1 的记录见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)。
 
 ## 为什么不是「又一个 ComfyUI MCP」
 
@@ -49,28 +52,102 @@ Comfy Org 官方已有 [comfy-mcp](https://github.com/Comfy-Org/comfy-mcp)（41 
 - **可控执行**：工具级 deadline，超时先 `/interrupt` 再 `/queue delete`，返回可重试的结构化错误
 - **幂等与恢复**：`idempotency_key` 去重；job 状态落盘，重启后仍可查
 - **上下文友好**：5 张图的任务，上下文增量 < 20KB
-- **无 GPU 可测**：fake ComfyUI + 录制的 ws 帧回放，CI 不需要显卡
+- **无 GPU 可测**：fake ComfyUI 覆盖全部 HTTP 端点，CI 不需要显卡
 
-## 快速开始
+## 环境要求
 
-> v0.1 尚未发布到 PyPI，以下为本地开发方式。
+| 项 | 要求 | 说明 |
+|---|---|---|
+| Python | 3.11+ | 用到 `asyncio.timeout`、`X \| None`、`dataclass(slots=True)` |
+| ComfyUI | 0.3.x | 只依赖 `/system_stats` `/prompt` `/history` `/view` `/object_info` `/queue` `/interrupt` `/ws`，这些都是稳定端点 |
+| GPU | 非必需 | 仅真机联调与 demo 需要；单元测试全离线 |
+
+MCP server 与 ComfyUI **进程隔离**：用独立的 venv，通过 HTTP 连 ComfyUI，绝不往整合包的 Python 里装东西。
+
+## 安装
 
 ```bash
-git clone https://github.com/<you>/comfy-mcp.git
+git clone https://github.com/lfmx233/comfy-mcp.git
 cd comfy-mcp
 python -m venv .venv
-.venv/Scripts/activate          # Windows；Linux/macOS 用 source .venv/bin/activate
-pip install -e ".[dev]"
-comfy-mcp --help
+
+# Windows
+.venv\Scripts\activate
+# Linux / macOS
+source .venv/bin/activate
+
+pip install ".[dev]"
 ```
 
-接入 Claude Desktop / Cursor：
+国内网络加镜像会快很多：
+
+```bash
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple ".[dev]"
+```
+
+> **不建议用 `pip install -e`。** 仓库路径含中文时（例如 `D:\工作\个人项目\comfy-mcp`），editable 安装写出的 `.pth` 是 UTF-8 内容，CPython 的 `site` 模块却按 GBK 解码，结果是**整个解释器起不来**：
+>
+> ```text
+> Fatal Python error: init_import_site: Failed to import the site module
+> UnicodeDecodeError: 'gbk' codec can't decode byte 0xaa in position 12: illegal multibyte sequence
+> ```
+>
+> 此时连 `python -c "print(1)"` 都失败，`PYTHONUTF8=1` 也没用。修法是删掉 `site-packages\_editable_impl_*.pth`，改用上面的非 editable 安装。纯英文路径下 `-e` 正常，但没必要为它冒险。
+
+验证：
+
+```bash
+comfy-mcp --version     # comfy-mcp 0.1.0.dev0
+comfy-mcp --check       # 逐个实例打印版本 / 队列 / 显存，连不上返回码 1
+```
+
+> `--check` 只是给人用的便利命令，Agent 用 `comfy_status` 拿同一份数据。
+
+## 配置
+
+全部通过环境变量，没有配置文件语法要学。
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `COMFY_MCP_INSTANCES` | `instances.yaml` | 实例清单；文件不存在时回落单实例 |
+| `COMFYUI_URL` | `http://127.0.0.1:8188` | 仅在 `instances.yaml` 不存在时生效 |
+| `COMFY_MCP_WORKFLOWS` | `workflows` | 工作流注册表目录 |
+| `COMFY_MCP_RUNS` | `runs` | manifest 与输出落盘目录 |
+| `COMFY_MCP_DEFAULT_TIMEOUT_S` | `300` | 单次运行的默认超时 |
+| `COMFY_MCP_PREVIEW_MAX_EDGE` | `512` | 首图缩略的最长边 |
+| `COMFY_MCP_TRANSPORT` | `stdio` | `stdio` 或 `http`（streamable-http） |
+| `COMFY_MCP_HTTP_PORT` | `8848` | `http` 传输的监听端口 |
+| `COMFY_MCP_MAX_UPLOAD_MB` | `20` | 上传素材上限 |
+
+`instances.yaml`（可选，多卡 / 多机时用）：
+
+```yaml
+instances:
+  - name: local-4060
+    url: http://127.0.0.1:8188
+    tags: [gpu8g, sd15]
+    models: [anything-v5-PrtRE.safetensors]
+  - name: remote-3090
+    url: https://gpu.example.com
+    tags: [gpu24g, sdxl]
+    models: [sd_xl_base_1.0.safetensors]
+```
+
+- `name` 必须唯一，工具调用时用 `instance` 参数指定；不传则用第一条。
+- `url` 支持 `http://` 与 `https://`（自动推导 `ws://` / `wss://`）。
+- `tags` / `models` 供 D2 起的「按需选实例」使用，当前只做展示。
+
+## 使用
+
+### Claude Desktop
+
+`%APPDATA%\Claude\claude_desktop_config.json`：
 
 ```json
 {
   "mcpServers": {
     "comfy": {
-      "command": "comfy-mcp",
+      "command": "C:/工作/个人项目/comfy-mcp/.venv/Scripts/comfy-mcp.exe",
       "env": {
         "COMFY_MCP_INSTANCES": "C:/ai/instances.yaml",
         "COMFY_MCP_WORKFLOWS": "C:/ai/workflows",
@@ -81,26 +158,33 @@ comfy-mcp --help
 }
 ```
 
-`instances.yaml`：
+### Cursor
 
-```yaml
-instances:
-  - name: local-3090
-    url: http://127.0.0.1:8188
-    tags: [gpu24g]
-    models: [sd_xl_base_1.0.safetensors]
+`.cursor/mcp.json` 用同样的 `mcpServers` 结构即可。
+
+### 命令行直连（调试用）
+
+```bash
+# 让 server 以 stdio 跑起来，手工喂 JSON-RPC（或用 MCP Inspector）
+python -m comfy_mcp
+
+# 端到端冒烟：起 server、列工具、调 comfy_status
+python scripts/smoke_d1.py
 ```
 
 ## 工具一览
 
-| 工具 | 用途 | 阻塞 |
-|---|---|---|
-| `comfy_status` | 实例、队列长度、已加载模型、已注册工作流数 | 否 |
-| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 |
-| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 |
-| `comfy_run` | 跑一次工作流，带进度，可设超时 | 是 |
-| `comfy_job` | 查任务状态（重启后仍可用） | 否 |
-| `comfy_cancel` | 取消任务并清队列 | 否 |
+| 工具 | 用途 | 阻塞 | 状态 |
+|---|---|---|---|
+| `comfy_status` | 实例版本、GPU 显存、队列长度 | 否 | ✅ v0.1-dev |
+| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 | D2 |
+| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 | D2 |
+| `comfy_run` | 跑一次工作流，带进度，可设超时 | 是 | D3 |
+| `comfy_job` | 查任务状态（重启后仍可用） | 否 | D3 |
+| `comfy_cancel` | 取消任务并清队列 | 否 | D3 |
+
+统一错误结构（9 个码）：`INVALID_PARAM` `UNKNOWN_WORKFLOW` `NODE_MISSING` `MODEL_MISSING` `QUEUE_FULL` `TIMEOUT` `CUDA_OOM` `INSTANCE_DOWN` `CANCELED`，返回
+`{code, message, hint, retryable, job_id}`，`hint` 用来告诉模型下一步怎么改。
 
 ## 架构
 
@@ -119,23 +203,52 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
  ComfyUI（本机 8188 / 远端 / 多实例）
 ```
 
+当前仓库已有 `config.py` / `client.py` / `server.py`，其余模块随里程碑补上。
+
 ## 设计取舍
 
 1. **不做通用 graph 执行器。** ComfyUI 自定义节点等于任意代码执行，把「任意 graph」接口暴露给模型是安全问题。注册表 + 白名单把它收敛成受限接口，代价是加工作流要写一个 yaml —— 这正是「生产可用」的含义。
 2. **输出优先 ResourceLink。** 一张 1024×1024 PNG 约 1.5MB，base64 后 2MB。五张图直接把上下文吃光。首图缩略给模型「看」，其余给链接按需读。
 3. **不基于 comfy-cli。** 少一层 shell 与文本解析，直接说 HTTP + websocket；也因此能同时服务本机与远端多个实例。
 4. **job 表放内存 + manifest 落盘。** 不引 Redis：单用户开发场景，重启恢复靠扫 `runs/` 目录即可。
+5. **依赖 `httpx2` 而不是 `httpx`。** MCP Python SDK 2.x 自带 `httpx2`（import 名就是 `httpx2`），复用它省一层版本冲突。
 
-## 路线图
+## 开发与测试
 
-| 里程碑 | 内容 | 状态 |
-|---|---|---|
-| D1 | 骨架、配置、HTTP/ws 客户端、fake ComfyUI | 进行中 |
-| D2 | UI→API 图转换、工作流注册表与 sidecar 校验 | 计划 |
-| D3 | 6 个工具、结构化输出、进度上报、超时与取消 | 计划 |
-| D4 | ResourceLink、manifest、幂等、重启恢复 | 计划 |
-| D5 | 接真实 ComfyUI，跑通 3 个工作流，产出 demo | 计划 |
-| D6 | README / 录屏 / PyPI / MCP Registry 上架 | 计划 |
+```bash
+pytest                      # 22 个用例，全离线，不需要 GPU
+ruff check . && ruff format --check .
+
+# 跑假 ComfyUI（Starlette），再用 curl 或 smoke 脚本验证
+python -m uvicorn tests.fake_comfy.app:app --port 8899
+curl http://127.0.0.1:8899/system_stats
+```
+
+改代码后的两种跑法（非 editable 安装不会自动同步源码）：
+
+```bash
+# 1) 直接跑 pytest —— 它按 pyproject.toml 的 pythonpath 读 src/
+pytest
+
+# 2) 临时指向源码跑 CLI
+# Windows
+set PYTHONPATH=src && comfy-mcp --check
+# Linux / macOS
+PYTHONPATH=src comfy-mcp --check
+
+# 3) 或者重新装一遍
+pip install --no-cache-dir --force-reinstall ".[dev]"
+```
+
+> 若 pip 报 `[WinError 5] 拒绝访问: '...\\pip\\cache\\wheels\\3a'`，加 `--no-cache-dir`。
+
+接真机：
+
+```bash
+# 先起 ComfyUI，例如秋叶整合包
+# D:\AIGC\ComfyUI-aki-v2\python\python.exe main.py --listen 127.0.0.1 --port 8188
+COMFY_MCP_INSTANCES=nope.yaml COMFYUI_URL=http://127.0.0.1:8188 python scripts/smoke_d1.py
+```
 
 详细设计与验收标准见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -147,12 +260,10 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
 - 不追求覆盖全部 ComfyUI API，只覆盖「跑工作流」这条主路径
 - 不兼容 Comfy Cloud 的专有端点
 
-## 开发
+## 版本记录
 
-```bash
-pytest            # 全部离线用例，不需要 GPU
-ruff check .
-```
+- 迭代记录目录：[iterations/](iterations/)
+- 每个里程碑一份：目标 → 产出 → 验收 → 踩坑 → 遗留 → 下一步
 
 ## 许可与致谢
 
