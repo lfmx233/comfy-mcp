@@ -1,0 +1,87 @@
+name: sdxl_txt2img
+description: >-
+  SDXL 双模型文生图（counterfeitxl_v10 底模 + sd_xl_refiner 精修），出 1024 级、
+  细节和手部明显好于 SD1.5 的二次元图。慢、吃显存（8G 卡要谨慎），
+  只在确实要成品级大图时用；草稿阶段用 txt2img_anime 更划算。
+tags: [image, anime, sdxl, txt2img]
+workflow: sdxl_txt2img.json
+params:
+  prompt:
+    type: string
+    required: true
+    max_len: 800
+    paths: ["3.inputs.text_g", "3.inputs.text_l", "10.inputs.text"]
+    description: 正向提示词，会同时写进 SDXL 编码器的 text_g/text_l 与 refiner 编码器。
+  negative:
+    type: string
+    default: >-
+      ((nsfw)),sketches,tattoo,(beard:1.3),(EasyNegative:1.3),badhandv4,(Teeth:1.3),
+      (worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality,
+      jpeg artifacts,signature,watermark,username,blurry
+    max_len: 800
+    paths: ["4.inputs.text_g", "4.inputs.text_l", "12.inputs.text"]
+    description: 反向提示词，写进负向编码器与 refiner 的负向编码器。
+  seed:
+    type: integer
+    default: -1
+    minimum: 0
+    maximum: 4294967295
+    path: "15.inputs.noise_seed"
+    description: 底模阶段种子；-1 表示随机并回填真实值。
+  refiner_seed:
+    type: integer
+    default: -1
+    minimum: 0
+    maximum: 4294967295
+    path: "16.inputs.noise_seed"
+    description: refiner 阶段种子。refiner 不重新加噪时它不影响结果，但保持可复现仍要记录。
+  steps:
+    type: integer
+    default: 30
+    minimum: 1
+    maximum: 150
+    paths: ["15.inputs.steps", "16.inputs.steps"]
+    description: 总步数，会同时写进底模与 refiner 两个 KSampler（前者跑到 87.5%，后者补完）。
+  cfg:
+    type: float
+    default: 5.0
+    minimum: 1.0
+    maximum: 30.0
+    paths: ["15.inputs.cfg", "16.inputs.cfg"]
+    description: 提示词贴合强度。SDXL 通常 4~7 比 SD1.5 更合适。
+  width:
+    type: integer
+    default: 1024
+    enum: [768, 896, 1024, 1152, 1216]
+    paths:
+      - "6.inputs.width"
+      - "3.inputs.width"
+      - "3.inputs.target_width"
+      - "4.inputs.width"
+      - "4.inputs.target_width"
+      - "10.inputs.width"
+      - "12.inputs.width"
+    description: 输出宽度（像素）。SDXL 在 1024 附近训练，偏离太多会崩。
+  height:
+    type: integer
+    default: 1024
+    enum: [768, 896, 1024, 1152, 1216]
+    paths:
+      - "6.inputs.height"
+      - "3.inputs.height"
+      - "3.inputs.target_height"
+      - "4.inputs.height"
+      - "4.inputs.target_height"
+      - "10.inputs.height"
+      - "12.inputs.height"
+    description: 输出高度（像素），同上。
+  ckpt_name:
+    type: string
+    default: counterfeitxl_v10.safetensors
+    path: "2.inputs.ckpt_name"
+    description: 底模文件名（SDXL 系），必须已装在目标实例上。
+  refiner_name:
+    type: string
+    default: sd_xl_refiner_1.0.safetensors
+    path: "9.inputs.ckpt_name"
+    description: refiner 模型文件名，必须已装在目标实例上。

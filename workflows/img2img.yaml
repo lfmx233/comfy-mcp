@@ -1,0 +1,73 @@
+name: img2img
+description: >-
+  图生图（SD1.5 + BArtstyle LoRA + 专用 VAE）。当需求是「拿一张已有的图当底、
+  换风格或重画细节」时用这个；image 必须是目标实例上已存在的文件名，
+  denoise 越低越保留原图结构，越高越接近重新画。
+tags: [image, anime, img2img]
+workflow: img2img.json
+params:
+  prompt:
+    type: string
+    required: true
+    max_len: 800
+    path: "8.inputs.text"
+    description: 想要的结果描述（正向提示词）。
+  negative:
+    type: string
+    default: >-
+      ((nsfw)),sketches,tattoo,(beard:1.3),(EasyNegative:1.3),badhandv4,(Teeth:1.3),
+      (worst quality:2),(low quality:2),(normal quality:2),lowres,normal quality,
+      jpeg artifacts,signature,watermark,username,blurry
+    max_len: 800
+    path: "9.inputs.text"
+    description: 反向提示词，默认沿用模板里的去瑕疵 tag。
+  image:
+    type: string
+    default: 屏幕截图 2024-05-08 234559.png
+    path: "1.inputs.image"
+    description: 输入图片文件名，必须是目标实例 LoadImage 列表里的名字。
+  seed:
+    type: integer
+    default: -1
+    minimum: 0
+    maximum: 4294967295
+    path: "12.inputs.seed"
+    description: 随机种子；-1 表示随机并回填真实值。
+  steps:
+    type: integer
+    default: 30
+    minimum: 1
+    maximum: 150
+    path: "12.inputs.steps"
+    description: 采样步数。
+  cfg:
+    type: float
+    default: 7.0
+    minimum: 1.0
+    maximum: 30.0
+    path: "12.inputs.cfg"
+    description: 提示词贴合强度。
+  denoise:
+    type: float
+    default: 0.55
+    minimum: 0.0
+    maximum: 1.0
+    path: "12.inputs.denoise"
+    description: 重画幅度。0.3 只微调色彩质感，0.55 换风格但仍保留构图，0.9 以上基本重画。
+  ckpt_name:
+    type: string
+    default: anything-v5-PrtRE.safetensors
+    path: "3.inputs.ckpt_name"
+    description: 底模文件名，必须已装在目标实例上。
+  lora_name:
+    type: string
+    default: BArtstyleV7-EXP.safetensors
+    path: "4.inputs.lora_name"
+    description: 风格 LoRA 文件名。
+  lora_strength:
+    type: float
+    default: 0.9
+    minimum: 0.0
+    maximum: 2.0
+    paths: ["4.inputs.strength_model", "4.inputs.strength_clip"]
+    description: LoRA 权重。
