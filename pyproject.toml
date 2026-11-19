@@ -21,6 +21,7 @@ dependencies = [
   "httpx2>=2.10.0",   # HTTP client; import name is httpx2, not httpx
   "websockets>=13",
   "pyyaml>=6",
+  "pillow>=10.0  # optional at runtime: previews fall back to the original bytes without it",
 ]
 
 [project.optional-dependencies]

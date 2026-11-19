@@ -17,6 +17,7 @@ htmlcov/
 
 # Project runtime artifacts
 runs/
+runs*/
 *.log
 *.tmp
 pip-ephem-wheel-cache-*/

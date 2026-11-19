@@ -9,19 +9,24 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
+import inspect
+import json
 import logging
 import time
 from typing import Any
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.context import Context
+from mcp.types import CallToolResult, TextContent
 
 from . import __version__
 from .client import ComfyClient, ComfyUnreachable
 from .config import ConfigError, Instance, Settings, load_settings
 from .errors import classify_execution_error, error, from_exception
 from .graph import prompt_hash, validate_prompt
+from .hashes import ModelHasher
 from .jobs import Job, JobStore, Progress
+from .manifest import ManifestStore
 from .registry import (
     Registry,
     RegistryError,
@@ -29,6 +34,7 @@ from .registry import (
     load_registry,
     resolve_params,
 )
+from .resources import image_block, image_size, resource_link
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +70,23 @@ class _Fail(Exception):
         self.payload = payload
 
 
+def _returns_result(fn: Any) -> bool:
+    """True when the tool hands back content blocks instead of a plain dict."""
+    annotation = inspect.signature(fn).return_annotation
+    if isinstance(annotation, str):
+        return "CallToolResult" in annotation
+    return annotation is CallToolResult
+
+
+def _envelope(payload: dict[str, Any]) -> CallToolResult:
+    """An error envelope that still carries structured data for machine callers."""
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
+        structured_content=payload,
+        is_error=True,
+    )
+
+
 def _guarded(fn: Any) -> Any:
     """Turn internal failures into the error envelope before the SDK sees them.
 
@@ -71,15 +94,18 @@ def _guarded(fn: Any) -> Any:
     what this server promises never to do.
     """
 
+    returns_result = _returns_result(fn)
+
     @functools.wraps(fn)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return await fn(*args, **kwargs)
         except _Fail as exc:
-            return exc.payload
+            return _envelope(exc.payload) if returns_result else exc.payload
         except Exception as exc:  # noqa: BLE001 - last-resort mapping
             log.exception("tool %s crashed", fn.__name__)
-            return from_exception(exc)
+            payload = from_exception(exc)
+            return _envelope(payload) if returns_result else payload
 
     return wrapper
 
@@ -90,7 +116,38 @@ class App:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.jobs = JobStore()
+        self.manifests = ManifestStore(settings.runs_dir, keep=settings.keep_runs)
+        self.hasher = ModelHasher(settings.models_dir, settings.runs_dir / "checksums.json")
         self._registries: dict[str, tuple[Registry, dict[str, Any]]] = {}
+        self._recover()
+
+    def _recover(self) -> None:
+        """Rehydrate the runs/ directory on startup.
+
+        A TIMEOUT that outlives the process is still a job: the model that holds its id
+        must be able to ask again after a restart, so the table is rebuilt before the
+        first tool call, not lazily on a miss.
+        """
+        recovered = self.manifests.load()
+        adopted = self.jobs.adopt(recovered)
+        for problem in self.manifests.skipped:
+            log.warning("skipping unreadable manifest: %s", problem)
+        if adopted:
+            log.info("recovered %d job manifest(s) from %s", adopted, self.settings.runs_dir)
+
+    async def record(self, job: Job) -> None:
+        """Fill in model digests, then persist the job. Never fatal."""
+        if not job.models:
+            job.models = _models(job.api)
+        for model in job.models:
+            if model.get("sha256") is None:
+                name = str(model.get("name") or "")
+                model["sha256"] = await asyncio.to_thread(self.hasher.sha256, name)
+        try:
+            self.manifests.write(job)
+            self.manifests.prune()
+        except OSError as exc:
+            log.warning("could not persist job %s: %s", job.job_id, exc)
 
     def resolve(self, instance: str | None) -> Instance:
         try:
@@ -126,12 +183,15 @@ def _run_result(job: Job, *, reused: bool = False) -> dict[str, Any]:
         "workflow": job.workflow,
         "workflow_hash": job.workflow_hash,
         "params": job.params,
-        "models": _models(job.api),
+        "models": job.models or _models(job.api),
         "instance": job.instance,
         "started_at": job.started_at,
     }
     payload: dict[str, Any] = {
         "job_id": job.job_id,
+        # The prompt id is what comfy://output/<prompt_id>/<index> is keyed on, so a
+        # caller that only reads the text block can still reach the full-size image.
+        "prompt_id": job.prompt_id,
         "status": job.status,
         "elapsed_s": job.elapsed_s,
         "manifest": manifest,
@@ -173,6 +233,68 @@ def _outputs(entry: dict[str, Any], prompt_id: str | None) -> list[dict[str, Any
                 }
             )
     return outputs
+
+
+async def _attach_outputs(client: ComfyClient, job: Job, *, limit: int = 8) -> bytes | None:
+    """Fetch the first few outputs to learn their real size, returning the first image.
+
+    /history does not report width or height, so the only honest source is the image
+    itself. Fetching up to eight of them over the local network is cheap; fetching
+    them only to fill a field for a remote instance would not be, hence the cap.
+    """
+
+    async def one(output: dict[str, Any]) -> tuple[int, bytes | None]:
+        filename = output.get("filename")
+        if not filename:
+            return int(output.get("index") or 0), None
+        try:
+            data = await client.view(
+                str(filename),
+                subfolder=str(output.get("subfolder") or ""),
+                type_=str(output.get("type") or "output"),
+            )
+        except Exception as exc:  # noqa: BLE001 - a missing image is not a failed run
+            log.debug("could not fetch %s: %s", filename, exc)
+            return int(output.get("index") or 0), None
+        size = image_size(data)
+        if size is not None:
+            output["width"], output["height"] = size
+        return int(output.get("index") or 0), data
+
+    fetched = await asyncio.gather(*(one(o) for o in job.outputs[:limit]))
+    for index, data in fetched:
+        if index == 0:
+            return data
+    return None
+
+
+def _content_result(
+    app: App, job: Job, *, first_image: bytes | None = None, reused: bool = False
+) -> CallToolResult:
+    """Build the content blocks: JSON text, at most one image, one link per output."""
+    payload = _run_result(job, reused=reused)
+    content: list[Any] = [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))]
+    if first_image is not None:
+        content.append(image_block(first_image, max_edge=app.settings.preview_max_edge))
+    for output in job.outputs:
+        if output.get("filename") and job.prompt_id:
+            content.append(resource_link(job.prompt_id, int(output["index"]), output))
+    return CallToolResult(content=content, structured_content=payload)
+
+
+async def _complete(
+    app: App,
+    job: Job,
+    *,
+    client: ComfyClient | None = None,
+    want_preview: bool = False,
+) -> CallToolResult:
+    """Persist the terminal state, then shape the response."""
+    first: bytes | None = None
+    if client is not None and want_preview and job.status == "succeeded" and job.outputs:
+        first = await _attach_outputs(client, job)
+    await app.record(job)
+    return _content_result(app, job, first_image=first)
 
 
 def _execution_message(entry: dict[str, Any]) -> str:
@@ -373,7 +495,7 @@ def build_server(settings: Settings | None = None) -> MCPServer:
         idempotency_key: str | None = None,
         preview: bool = True,
         ctx: Context | None = None,
-    ) -> dict[str, Any]:
+    ) -> CallToolResult:
         """Run a registered workflow and block until it finishes, times out, or fails.
 
         Returns a manifest (workflow_hash + resolved params + models) so the image can be
@@ -395,7 +517,16 @@ def build_server(settings: Settings | None = None) -> MCPServer:
         key = idempotency_key or prompt_hash(api)
         existing = app.jobs.find_by_idempotency(key)
         if existing is not None:
-            return _run_result(existing, reused=True)
+            # A replay still owes the caller the picture: the whole point of asking for
+            # the same params twice is that the second caller wants the same image.
+            first: bytes | None = None
+            if preview and existing.status == "succeeded" and existing.outputs:
+                try:
+                    async with ComfyClient(inst.http_base) as client:
+                        first = await _attach_outputs(client, existing)
+                except Exception as exc:  # noqa: BLE001 - a replay must still answer
+                    log.warning("could not re-attach the preview for %s: %s", existing.job_id, exc)
+            return _content_result(app, existing, first_image=first, reused=True)
 
         async with ComfyClient(inst.http_base) as client:
             try:
@@ -448,7 +579,7 @@ def build_server(settings: Settings | None = None) -> MCPServer:
                                 job_id=job.job_id,
                             ),
                         )
-                        return _run_result(job)
+                        return await _complete(app, job)
                     finally:
                         if pump is not None:
                             pump.cancel()
@@ -456,7 +587,7 @@ def build_server(settings: Settings | None = None) -> MCPServer:
                                 await pump
 
                 if job.status == "canceled":
-                    return _run_result(job)
+                    return await _complete(app, job)
                 entry = await _history_entry(client, job.prompt_id)
                 if entry is None:
                     app.jobs.finish(
@@ -468,7 +599,7 @@ def build_server(settings: Settings | None = None) -> MCPServer:
                             job_id=job.job_id,
                         ),
                     )
-                    return _run_result(job)
+                    return await _complete(app, job)
                 status_str = (entry.get("status") or {}).get("status_str")
                 if status_str == "error":
                     message = _execution_message(entry)
@@ -481,7 +612,7 @@ def build_server(settings: Settings | None = None) -> MCPServer:
                     )
                 else:
                     app.jobs.finish(job, "succeeded", outputs=_outputs(entry, job.prompt_id))
-                return _run_result(job)
+                return await _complete(app, job, client=client, want_preview=preview)
             except Exception as exc:  # noqa: BLE001 - transport failures become envelopes
                 app.jobs.finish(
                     job, "failed", error_payload=error("INSTANCE_DOWN", str(exc), job_id=job.job_id)
@@ -532,6 +663,32 @@ def build_server(settings: Settings | None = None) -> MCPServer:
             error_payload=error("CANCELED", "canceled by request", job_id=job.job_id),
         )
         return {"canceled": True, "job_id": job.job_id, "queue_removed": removed}
+
+    @server.resource(
+        "comfy://output/{prompt_id}/{index}",
+        name="comfy-output",
+        mime_type="image/png",
+        description="One original output image, by prompt id and index (bytes, not base64).",
+    )
+    async def comfy_output(prompt_id: str, index: str) -> bytes:
+        """Read the full-resolution image behind a ResourceLink from comfy_run."""
+        job = app.jobs.find_by_prompt(prompt_id)
+        if job is None:
+            raise ValueError(f"unknown prompt {prompt_id!r}")
+        try:
+            output = job.outputs[int(index)]
+        except (ValueError, IndexError) as exc:
+            raise ValueError(f"no output {index!r} for prompt {prompt_id!r}") from exc
+        filename = output.get("filename")
+        if not filename:
+            raise ValueError(f"output {index!r} of {prompt_id!r} has no file")
+        inst = app.resolve(job.instance)
+        async with ComfyClient(inst.http_base) as client:
+            return await client.view(
+                str(filename),
+                subfolder=str(output.get("subfolder") or ""),
+                type_=str(output.get("type") or "output"),
+            )
 
     return server
 

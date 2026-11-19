@@ -91,6 +91,7 @@ class FakeState:
     node_delay: float = 0.01
     progress_steps: int = 3
     failure: str | None = None  # None | "oom" | "boom"
+    image_count: int = 2
     interrupt_requested: bool = False
     events: list[dict[str, Any]] = field(default_factory=list)
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
@@ -130,8 +131,8 @@ class FakeState:
             "outputs": {
                 "9": {
                     "images": [
-                        {"filename": "fake_00001_.png", "subfolder": "", "type": "output"},
-                        {"filename": "fake_00001_.png", "subfolder": "", "type": "temp"},
+                        {"filename": f"fake_{i:05d}_.png", "subfolder": "", "type": "output"}
+                        for i in range(1, self.image_count + 1)
                     ]
                 }
             },

@@ -65,6 +65,8 @@ class Settings:
     http_port: int = 8848
     max_upload_mb: int = 20
     max_queue: int = 20
+    models_dir: Path | None = None
+    keep_runs: int = 100
 
     def instance(self, name: str | None = None) -> Instance:
         """Return the named instance, or the first one when no name is given."""
@@ -143,6 +145,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     """Build Settings from environment variables (and instances.yaml)."""
     env = dict(os.environ if env is None else env)
 
+    models_dir = env.get("COMFY_MCP_MODELS_DIR", "").strip()
     transport = env.get("COMFY_MCP_TRANSPORT", "stdio").strip().lower()
     if transport not in {"stdio", "http"}:
         raise ConfigError(f"COMFY_MCP_TRANSPORT must be 'stdio' or 'http', got {transport!r}")
@@ -157,4 +160,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         http_port=_int(env, "COMFY_MCP_HTTP_PORT", 8848, minimum=1),
         max_upload_mb=_int(env, "COMFY_MCP_MAX_UPLOAD_MB", 20, minimum=1),
         max_queue=_int(env, "COMFY_MCP_MAX_QUEUE", 20, minimum=1),
+        models_dir=Path(models_dir) if models_dir else None,
+        keep_runs=_int(env, "COMFY_MCP_KEEP_RUNS", 100, minimum=1),
     )

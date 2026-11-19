@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import socket
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,6 +21,7 @@ from tests.fake_comfy.app import FakeState, create_app
 
 REGISTRY = Path("tests/fixtures/registry")
 BROKEN = Path("tests/fixtures/registry_broken")
+RUNS_DIR = Path("tests/runs")
 
 
 def _free_port() -> int:
@@ -66,11 +70,18 @@ def fake() -> Any:
         server.stop()
 
 
+@pytest.fixture(autouse=True)
+def _isolated_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test gets its own runs/ dir: manifests are recovered on startup, so a shared
+    directory would let one test's finished job answer another test's comfy_run."""
+    monkeypatch.setattr(sys.modules[__name__], "RUNS_DIR", tmp_path / "runs")
+
+
 def make_settings(url: str, workflows_dir: Path = REGISTRY, max_queue: int = 2) -> Settings:
     return Settings(
         instances=(Instance(name="fake", url=url),),
         workflows_dir=workflows_dir,
-        runs_dir=Path("tests/runs"),
+        runs_dir=RUNS_DIR,
         default_timeout_s=5,
         max_queue=max_queue,
     )
@@ -200,10 +211,15 @@ async def test_run_is_idempotent_for_same_params(fake: Any) -> None:
     state, url = fake
     server = build_server(make_settings(url))
     first = await call(server, "comfy_run", workflow="smoke", params={"seed": 11, "steps": 2})
-    second = await call(server, "comfy_run", workflow="smoke", params={"seed": 11, "steps": 2})
+    replay = await server.call_tool(
+        "comfy_run", {"workflow": "smoke", "params": {"seed": 11, "steps": 2}}
+    )
+    second = replay.model_dump(mode="json")["structured_content"]
     assert second["reused"] is True
     assert second["job_id"] == first["job_id"]
     assert len(state.submitted) == 1
+    # Asking twice for the same image has to hand back the image, not just the id.
+    assert [block.type for block in replay.content][:2] == ["text", "image"]
 
 
 async def test_run_maps_cuda_oom(fake: Any) -> None:
@@ -276,3 +292,101 @@ async def test_cancel_finished_job_is_a_noop(fake: Any) -> None:
     assert payload["canceled"] is False
     assert payload["queue_removed"] is False
     assert "succeeded" in payload["reason"]
+
+
+async def test_run_returns_text_preview_and_links(fake: Any) -> None:
+    _, url = fake
+    server = build_server(make_settings(url))
+    result = await server.call_tool("comfy_run", {"workflow": "smoke", "params": {"seed": 21}})
+
+    kinds = [block.type for block in result.content]
+    assert kinds == ["text", "image", "resource_link", "resource_link"]
+    assert result.is_error is False
+    payload = result.structured_content
+    assert payload is not None
+    assert payload["outputs"][0]["resource"] == f"comfy://output/{payload['prompt_id']}/0"
+    assert payload["outputs"][0]["filename"] == "fake_00001_.png"
+
+    image = result.content[1]
+    assert image.type == "image"
+    assert image.mime_type == "image/png"
+    assert base64.b64decode(image.data).startswith(b"\x89PNG")
+
+
+async def test_run_can_skip_the_inline_preview(fake: Any) -> None:
+    _, url = fake
+    server = build_server(make_settings(url))
+    result = await server.call_tool(
+        "comfy_run", {"workflow": "smoke", "params": {"seed": 22}, "preview": False}
+    )
+
+    assert [block.type for block in result.content] == ["text", "resource_link", "resource_link"]
+    assert result.structured_content["outputs"][0]["width"] is None
+
+
+async def test_output_dimensions_come_from_the_image_bytes(fake: Any) -> None:
+    _, url = fake
+    server = build_server(make_settings(url))
+    payload = await call(server, "comfy_run", workflow="smoke", params={"seed": 23})
+
+    # /history does not report sizes; the fake serves a 1x1 PNG.
+    assert payload["outputs"][0]["width"] == 1
+    assert payload["outputs"][0]["height"] == 1
+
+
+async def test_a_new_server_recovers_the_job_from_runs(fake: Any) -> None:
+    _, url = fake
+    first = build_server(make_settings(url))
+    run = await call(first, "comfy_run", workflow="smoke", params={"seed": 24})
+    assert run["status"] == "succeeded"
+
+    restarted = build_server(make_settings(url))
+    job = await call(restarted, "comfy_job", job_id=run["job_id"])
+    assert job["status"] == "succeeded"
+    assert job["manifest"]["params"]["seed"] == 24
+    assert job["outputs"][0]["filename"] == "fake_00001_.png"
+
+
+async def test_output_resource_serves_the_original_bytes(fake: Any) -> None:
+    _, url = fake
+    server = build_server(make_settings(url))
+    run = await call(server, "comfy_run", workflow="smoke", params={"seed": 25})
+
+    contents = await server.read_resource(f"comfy://output/{run['prompt_id']}/0")
+    body = list(contents)[0]
+    assert body.content.startswith(b"\x89PNG")
+    assert body.mime_type == "image/png"
+
+
+async def test_output_resource_rejects_unknown_prompts(fake: Any) -> None:
+    _, url = fake
+    server = build_server(make_settings(url))
+    with pytest.raises(Exception, match="comfy://output/deadbeef/0"):
+        await server.read_resource("comfy://output/deadbeef/0")
+
+
+async def test_five_outputs_stay_under_the_context_budget(fake: Any) -> None:
+    state, url = fake
+    state.image_count = 5
+    server = build_server(make_settings(url))
+    result = await server.call_tool("comfy_run", {"workflow": "smoke", "params": {"seed": 26}})
+
+    payload = result.structured_content
+    assert len(payload["outputs"]) == 5
+    assert len(json.dumps(payload, ensure_ascii=False).encode()) < 20_000
+    assert [block.type for block in result.content].count("resource_link") == 5
+    assert [block.type for block in result.content].count("image") == 1
+
+
+async def test_a_failed_run_is_not_replayed_by_idempotency(fake: Any) -> None:
+    state, url = fake
+    server = build_server(make_settings(url))
+
+    state.failure = "oom"
+    first = await call(server, "comfy_run", workflow="smoke", params={"seed": 27})
+    assert first["status"] == "failed"
+
+    state.failure = None
+    second = await call(server, "comfy_run", workflow="smoke", params={"seed": 27})
+    assert second["status"] == "succeeded"
+    assert second["job_id"] != first["job_id"]
