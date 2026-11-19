@@ -1,0 +1,401 @@
+[
+ {
+  "type": "execution_start",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "timestamp": 1795089417407
+  }
+ },
+ {
+  "type": "execution_cached",
+  "data": {
+   "nodes": [
+    "5",
+    "1",
+    "2",
+    "4",
+    "7"
+   ],
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "timestamp": 1795089417408
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 0.0,
+     "max": 1.0,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "executing",
+  "data": {
+   "node": "6",
+   "display_node": "6",
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 1,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 1,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 2,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 2,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 3,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 3,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 4,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 4,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 5,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 5,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "running",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress",
+  "data": {
+   "value": 6,
+   "max": 6,
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "node": "6"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "finished",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "finished",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    },
+    "8": {
+     "value": 0.0,
+     "max": 1.0,
+     "state": "running",
+     "node_id": "8",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "8",
+     "parent_node_id": null,
+     "real_node_id": "8"
+    }
+   }
+  }
+ },
+ {
+  "type": "executing",
+  "data": {
+   "node": "8",
+   "display_node": "8",
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "finished",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    },
+    "8": {
+     "value": 1.0,
+     "max": 1.0,
+     "state": "finished",
+     "node_id": "8",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "8",
+     "parent_node_id": null,
+     "real_node_id": "8"
+    }
+   }
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "finished",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    },
+    "8": {
+     "value": 1.0,
+     "max": 1.0,
+     "state": "finished",
+     "node_id": "8",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "8",
+     "parent_node_id": null,
+     "real_node_id": "8"
+    },
+    "9": {
+     "value": 0.0,
+     "max": 1.0,
+     "state": "running",
+     "node_id": "9",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "9",
+     "parent_node_id": null,
+     "real_node_id": "9"
+    }
+   }
+  }
+ },
+ {
+  "type": "executing",
+  "data": {
+   "node": "9",
+   "display_node": "9",
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840"
+  }
+ },
+ {
+  "type": "executed",
+  "data": {
+   "node": "9",
+   "display_node": "9",
+   "output": {
+    "images": [
+     {
+      "filename": "ComfyUI_temp_ojeum_00003_.png",
+      "subfolder": "",
+      "type": "temp"
+     }
+    ]
+   },
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840"
+  }
+ },
+ {
+  "type": "progress_state",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "nodes": {
+    "6": {
+     "value": 6,
+     "max": 6,
+     "state": "finished",
+     "node_id": "6",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "6",
+     "parent_node_id": null,
+     "real_node_id": "6"
+    },
+    "8": {
+     "value": 1.0,
+     "max": 1.0,
+     "state": "finished",
+     "node_id": "8",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "8",
+     "parent_node_id": null,
+     "real_node_id": "8"
+    },
+    "9": {
+     "value": 1.0,
+     "max": 1.0,
+     "state": "finished",
+     "node_id": "9",
+     "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+     "display_node_id": "9",
+     "parent_node_id": null,
+     "real_node_id": "9"
+    }
+   }
+  }
+ },
+ {
+  "type": "execution_success",
+  "data": {
+   "prompt_id": "cdca9e49-673e-444f-8b02-37c8df0fd840",
+   "timestamp": 1795089418411
+  }
+ }
+]

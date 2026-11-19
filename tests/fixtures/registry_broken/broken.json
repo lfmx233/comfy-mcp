@@ -1,0 +1,16 @@
+{
+  "1": {
+    "class_type": "MissingNode",
+    "inputs": {}
+  },
+  "2": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "1",
+        0
+      ],
+      "filename_prefix": "x"
+    }
+  }
+}

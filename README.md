@@ -5,7 +5,7 @@
 ![status](https://img.shields.io/badge/status-v0.1--dev-orange)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![tests](https://img.shields.io/badge/tests-76%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)
 
 ## 这是什么
 
@@ -24,12 +24,12 @@
 |---|---|---|
 | D1 | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
 | D2 | UI→API 图转换 + 工作流注册表（3 个真机工作流） | ✅ 2026-11-19 |
-| D3 | 6 个工具 + 进度映射 | ⏳ 下一步 |
-| D4 | 交付、manifest、幂等与恢复 | ⏳ |
+| D3 | 6 个工具 + 进度映射 + 10 个错误码 + 假服务器真执行 | ✅ 2026-11-19 |
+| D4 | 交付、manifest、幂等与恢复 | ⏳ 下一步 |
 | D5 | 真机联调（本机 4060 已连通） | ⏳ |
 | D6 | 发布（PyPI + MCP Registry） | ⏳ |
 
-每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里：D1 见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)，D2 见 [iterations/D2-图转换与注册表.md](iterations/D2-图转换与注册表.md)。
+每个里程碑的「做了什么 / 踩了什么坑 / 怎么验证」都在 [iterations/](iterations/) 里：D1 见 [iterations/D1-骨架与地基.md](iterations/D1-骨架与地基.md)，D2 见 [iterations/D2-图转换与注册表.md](iterations/D2-图转换与注册表.md)，D3 见 [iterations/D3-工具与进度.md](iterations/D3-工具与进度.md)。
 
 ## 为什么不是「又一个 ComfyUI MCP」
 
@@ -48,7 +48,7 @@ Comfy Org 官方已有 [comfy-mcp](https://github.com/Comfy-Org/comfy-mcp)（41 
 
 - **6 个工具**，全部类型化：入参由 JSON Schema 校验，出参走 `outputSchema` + `structuredContent`（MCP 2026-07-28 规范）
 - **工作流注册表**：`workflows/<name>.json` + `<name>.yaml`，参数白名单声明路径、类型、范围、枚举
-- **进度**：`executing` / `progress` / `executed` 三类 ws 事件加权成 0–100，断线自动降级轮询
+- **进度**：`execution_cached` / `progress_state` / `progress` / `executed` 四类 ws 事件加权成 0–100（单调不回退），断线自动降级轮询
 - **可控执行**：工具级 deadline，超时先 `/interrupt` 再 `/queue delete`，返回可重试的结构化错误
 - **幂等与恢复**：`idempotency_key` 去重；job 状态落盘，重启后仍可查
 - **上下文友好**：5 张图的任务，上下文增量 < 20KB
@@ -118,6 +118,7 @@ comfy-mcp --check       # 逐个实例打印版本 / 队列 / 显存，连不上
 | `COMFY_MCP_TRANSPORT` | `stdio` | `stdio` 或 `http`（streamable-http） |
 | `COMFY_MCP_HTTP_PORT` | `8848` | `http` 传输的监听端口 |
 | `COMFY_MCP_MAX_UPLOAD_MB` | `20` | 上传素材上限 |
+| `COMFY_MCP_MAX_QUEUE` | `20` | 队列深度上限，超过直接报 `QUEUE_FULL`，不让请求埋进实例子自己的队列 |
 
 `instances.yaml`（可选，多卡 / 多机时用）：
 
@@ -177,14 +178,41 @@ python scripts/smoke_d1.py
 | 工具 | 用途 | 阻塞 | 状态 |
 |---|---|---|---|
 | `comfy_status` | 实例版本、GPU 显存、队列长度 | 否 | ✅ v0.1-dev |
-| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 | D3（注册表已就绪） |
-| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 | D3（校验逻辑已就绪） |
-| `comfy_run` | 跑一次工作流，带进度，可设超时 | 是 | D3 |
-| `comfy_job` | 查任务状态（重启后仍可用） | 否 | D3 |
-| `comfy_cancel` | 取消任务并清队列 | 否 | D3 |
+| `comfy_list_workflows` | 列出工作流及其参数 schema（给 Agent 看的说明书） | 否 | ✅ v0.1-dev |
+| `comfy_validate` | 校验节点 / 模型是否齐备，不花 GPU | 否 | ✅ v0.1-dev |
+| `comfy_run` | 跑一次工作流，带进度，可设超时 | 是 | ✅ v0.1-dev |
+| `comfy_job` | 查任务状态（重启后仍可用） | 否 | ✅ v0.1-dev |
+| `comfy_cancel` | 取消任务并清队列 | 否 | ✅ v0.1-dev |
 
-统一错误结构（9 个码）：`INVALID_PARAM` `UNKNOWN_WORKFLOW` `NODE_MISSING` `MODEL_MISSING` `QUEUE_FULL` `TIMEOUT` `CUDA_OOM` `INSTANCE_DOWN` `CANCELED`，返回
+统一错误结构（10 个码）：`INVALID_PARAM` `UNKNOWN_WORKFLOW` `NODE_MISSING` `MODEL_MISSING` `QUEUE_FULL` `TIMEOUT` `CUDA_OOM` `INSTANCE_DOWN` `CANCELED` `EXECUTION_FAILED`，返回
 `{code, message, hint, retryable, job_id}`，`hint` 用来告诉模型下一步怎么改。
+
+前 9 个是设计阶段定的，`EXECUTION_FAILED` 是 D3 之后加的：ComfyUI 报 `status_str=error` 但异常信息里既不是 OOM 也不是任何已知类别时（例如 `RuntimeError: mat1 and mat2 shapes cannot be multiplied`），必须有个兜底码，否则这类失败会掉进「未知异常」把栈信息糊给模型。它 `retryable: false`——同样的图同样的参数重跑一次还是同样的错，重试只是浪费 GPU。
+
+一次成功调用的样子（`comfy_run` 的返回，节选）：
+
+```json
+{
+  "job_id": "5dbf44be3d74",
+  "status": "succeeded",
+  "elapsed_s": 10.8,
+  "manifest": {
+    "workflow": "txt2img_anime",
+    "workflow_hash": "sha256:6a6f36af52f7…",
+    "params": {"prompt": "a cat sitting on a windowsill", "seed": 12345, "steps": 4},
+    "models": [{"node": "1", "name": "anything-v5-PrtRE.safetensors", "sha256": null}],
+    "instance": "default",
+    "started_at": 1795089395.02
+  },
+  "outputs": [
+    {"index": 0, "node": "9", "kind": "image", "filename": "ComfyUI_00001_.png",
+     "width": null, "height": null, "resource": "comfy://output/80d48ea0-…/0"}
+  ],
+  "warnings": []
+}
+```
+
+`width` / `height` 现在是 `null`：`/history` 不返回图片尺寸，D4 取图做缩略时从 PNG 头解析后再补上。
 
 ## 加一个工作流
 
@@ -239,7 +267,7 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
  ComfyUI（本机 8188 / 远端 / 多实例）
 ```
 
-当前仓库已有 `config.py` / `client.py` / `server.py` / `graph.py` / `registry.py`，`jobs.py` / `manifest.py` 随 D3、D4 补上。
+当前仓库已有 `config.py` / `client.py` / `server.py` / `graph.py` / `registry.py` / `jobs.py` / `errors.py`，`manifest.py`（落盘）随 D4 补上。
 
 ## 设计取舍
 
@@ -252,7 +280,7 @@ MCP host (Claude Desktop / Cursor / 自研 Agent)
 ## 开发与测试
 
 ```bash
-pytest                      # 76 个用例，全离线，不需要 GPU
+pytest                      # 103 个用例，全离线，不需要 GPU
 ruff check . && ruff format --check .
 
 # 跑假 ComfyUI（Starlette），再用 curl 或 smoke 脚本验证
@@ -288,6 +316,28 @@ COMFY_MCP_INSTANCES=nope.yaml COMFYUI_URL=http://127.0.0.1:8188 python scripts/s
 # 校验 + 真实提交（提交后立即取消，不会真的烧 GPU）
 python scripts/verify_d2.py --dry-run   # 只校验，不提交
 python scripts/verify_d2.py             # 校验 + POST /prompt + 立刻 /interrupt
+
+# D3：真机跑通一次 comfy_run（会真的出图，约 10s）
+$env:PYTHONPATH="src"; python scripts/verify_d3.py
+# 加 --timeout-check 会再跑一个「必超时」的任务，验证 interrupt + 清队列
+$env:PYTHONPATH="src"; python scripts/verify_d3.py --timeout-check
+```
+
+D3 的真机输出（4060 Laptop，SD1.5 512×512 4 步）：
+
+```text
+[ok] comfy_status: 0.3.60 queue {'running': 0, 'pending': 0} workflows 3
+[ok] comfy_list_workflows: img2img, sdxl_txt2img, txt2img_anime
+[ok] comfy_validate: ok=True issues=[]
+[ok] comfy_run: 5dbf44be3d74 in 10.8s, 1 output(s)
+       first output: comfy://output/2328674e-…/0 size pending D4 kind=image
+[ok] comfy_job: status=succeeded progress=100.0
+[ok] idempotency: reused=True same_job=True
+       frame kinds: {'status': 3, 'execution_start': 1, 'execution_cached': 1,
+                     'progress_state': 12, 'executing': 4, 'progress': 4,
+                     'executed': 1, 'execution_success': 1}
+[ok] ws progress: 27 frames, samples 50.0 → 62.5 → 65.6 → 68.8 → 71.9 → 75.0 → 87.5 → 99.0 → 100.0
+VERIFY_D3: PASS
 ```
 
 详细设计与验收标准见 [docs/PLAN.md](docs/PLAN.md)。

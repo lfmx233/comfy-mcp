@@ -64,6 +64,7 @@ class Settings:
     transport: str = "stdio"
     http_port: int = 8848
     max_upload_mb: int = 20
+    max_queue: int = 20
 
     def instance(self, name: str | None = None) -> Instance:
         """Return the named instance, or the first one when no name is given."""
@@ -155,4 +156,5 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         transport=transport,
         http_port=_int(env, "COMFY_MCP_HTTP_PORT", 8848, minimum=1),
         max_upload_mb=_int(env, "COMFY_MCP_MAX_UPLOAD_MB", 20, minimum=1),
+        max_queue=_int(env, "COMFY_MCP_MAX_QUEUE", 20, minimum=1),
     )

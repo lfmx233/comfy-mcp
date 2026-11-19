@@ -1,0 +1,21 @@
+name: smoke
+description: Minimal three-node graph; exists so tests can run a real round trip.
+tags: [test, fast]
+workflow: smoke.json
+params:
+  seed:
+    type: integer
+    path: 2.inputs.seed
+    default: -1
+    description: Sampling seed; -1 asks for a random one.
+  steps:
+    type: integer
+    path: 2.inputs.steps
+    default: 4
+    minimum: 1
+    maximum: 8
+  filename:
+    type: string
+    path: 3.inputs.filename_prefix
+    default: smoke
+    max_len: 40

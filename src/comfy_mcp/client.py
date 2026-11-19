@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -70,6 +71,30 @@ class Status:
     devices: tuple[Device, ...] = ()
     queue: QueueState = field(default_factory=QueueState)
     error: str | None = None
+
+
+class EventStream:
+    """A websocket that yields JSON frames and skips binary previews.
+
+    Kept as an object (not just an async generator) so the caller can open the socket
+    *before* submitting a prompt -- ComfyUI only pushes frames to clients that are
+    already connected with the same clientId.
+    """
+
+    def __init__(self, ws: Any) -> None:
+        self._ws = ws
+
+    def __aiter__(self) -> AsyncIterator[dict[str, Any]]:
+        return self._iterate()
+
+    async def _iterate(self) -> AsyncIterator[dict[str, Any]]:
+        async for message in self._ws:
+            if isinstance(message, bytes):
+                continue
+            try:
+                yield json.loads(message)
+            except json.JSONDecodeError:
+                continue
 
 
 class ComfyClient:
@@ -158,21 +183,29 @@ class ComfyClient:
     async def delete_from_queue(self, prompt_ids: list[str]) -> None:
         await self.post("/queue", {"delete": prompt_ids})
 
-    async def events(self, client_id: str) -> AsyncIterator[dict[str, Any]]:
-        """Yield decoded websocket messages until the socket closes."""
-        url = f"{self.base_url.replace('http://', 'ws://').replace('https://', 'wss://')}/ws?clientId={client_id}"
+    def _ws_url(self, client_id: str) -> str:
+        scheme = "wss" if self.base_url.startswith("https://") else "ws"
+        host = self.base_url.split("://", 1)[-1]
+        return f"{scheme}://{host}/ws?clientId={client_id}"
+
+    @asynccontextmanager
+    async def event_stream(self, client_id: str) -> AsyncIterator[EventStream]:
+        """Open the event socket; entering the context means it is connected.
+
+        Opens the socket *before* the prompt is submitted so no frame is missed.
+        """
+        url = self._ws_url(client_id)
         try:
             async with websockets.connect(url, max_size=None) as ws:
-                async for message in ws:
-                    if isinstance(message, bytes):
-                        # binary preview frames are not JSON; skip in the event stream
-                        continue
-                    try:
-                        yield json.loads(message)
-                    except json.JSONDecodeError:
-                        continue
+                yield EventStream(ws)
         except (OSError, websockets.WebSocketException) as exc:
             raise ComfyUnreachable(f"{url}: {exc}") from exc
+
+    async def events(self, client_id: str) -> AsyncIterator[dict[str, Any]]:
+        """Yield decoded websocket messages until the socket closes."""
+        async with self.event_stream(client_id) as stream:
+            async for event in stream:
+                yield event
 
     # -- aggregate ---------------------------------------------------------
 

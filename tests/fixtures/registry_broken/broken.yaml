@@ -1,0 +1,5 @@
+name: broken
+description: References a node class the fake instance does not have.
+tags: [test]
+workflow: broken.json
+params: {}

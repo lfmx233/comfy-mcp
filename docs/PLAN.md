@@ -1,7 +1,7 @@
 # comfy-mcp 详细方案（v0.1）
 
 > 本文是可执行设计文档：每个模块做什么、每个工具长什么样、怎么测、几天做完、做完怎么验收。
-> 状态：D1、D2 已完成。修改本文请同步 README 的路线图。
+> 状态：D1、D2、D3 已完成。修改本文请同步 README 的路线图。
 
 ---
 
@@ -48,7 +48,7 @@ GPU 显存不足 → 返回 `CUDA_OOM` + 建议降分辨率 / 换小模型 + 当
 | `server.py` | 定义 6 个工具，参数校验，调下层，组装返回 | 不写业务逻辑 |
 | `registry.py` | 扫 `workflows/`，加载 json+yaml，启动时全量校验，算 workflow_hash | 不转换图（交给 graph） |
 | `graph.py` | UI 导出 → API 格式；处理 widgets_values / Reroute / Primitive / group | 不改语义，只做结构映射 |
-| `jobs.py` | job 状态机（pending→running→succeeded/failed/canceled/timeout）、幂等表、deadline | 不碰 HTTP |
+| `jobs.py` | job 状态机（queued→running→succeeded/failed/canceled/timeout）、进度加权、幂等表 | 不碰 HTTP |
 | `client.py` | HTTP（/prompt /history /view /queue /interrupt /object_info /system_stats）+ ws 订阅 | 不判断业务成功与否 |
 | `manifest.py` | 生成并落盘 `runs/<job_id>.json`，供 `comfy_job` 与重启恢复 | — |
 | `resources.py` | `comfy://output/<prompt_id>/<n>` 资源读取 | — |
@@ -135,6 +135,7 @@ Agent                server                     ComfyUI
 | `CUDA_OOM` | 显存不足 | 是 | 降分辨率 / 换小模型 |
 | `INSTANCE_DOWN` | 连不上 | 是 | 换实例 |
 | `CANCELED` | 用户取消 | 否 | — |
+| `EXECUTION_FAILED` | 执行期报错但既不是 OOM 也不是已知类别（D3 新增） | 否 | 读 message 里的节点与异常，改图或改参数重跑 |
 
 统一返回形状：`{"code": "...", "message": "给人看的", "hint": "给模型看的下一步", "retryable": bool, "job_id": ...}`
 
@@ -186,7 +187,8 @@ sidecar 的 `path` 形如 `"3.inputs.seed"`，注入时按路径写值；路径�
 
 - ws 连接必须带 `?clientId=<X>`，且与 `POST /prompt` 的 `client_id` 相同，否则收不到事件。
 - 权重：总进度 = (已完成节点数 + 当前节点内 `value/max`) / 总节点数 × 100。
-- `report_progress` 必须单调递增；取 `max(上次, 本次)`。
+- 事件源有三代格式，0.3.x 实际会同时发：老的单节点 `progress`（data.value/max）、新的 `progress_state`（data.nodes 是**全量**节点状态字典）、以及 `execution_cached`（命中缓存，直接算完成）。D3 实测发现只处理 `progress` 时中间进度全是 0，补上 `progress_state` 后才有 50 → 62.5 → 65.6 → 68.8 → 71.9 → 75 → 87.5 → 99 → 100 这样的细粒度。
+- `report_progress` 必须单调递增；取 `max(上次, 本次)`，且成功前封顶 99（避免 Agent 把 99.9 当完成）。
 - 心跳：15s 没有事件 → 探一次 `GET /history/<pid>`；ws 断开 → 切 1s 轮询 `/history`，直到完成或超时。
 
 ### 7.4 超时与取消
@@ -268,9 +270,13 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 1. UI 的 `widgets_values` 比 API 的 widget 槽多出「隐藏前端控件」（seed 的 `control_after_generate`、`dynamicPrompts`、LoadImage 的上传按钮、CLIPTextEncodeSDXL 的两个 toggle 且都排在末尾）。按 flagged 输入贪心跳值会在 SDXL/自定义节点上错位，改为**按值类型对齐的 DP 搜索**（宁可显式失败也不静默错位）。
 2. 模型缺失必须在 `validate_prompt` 报 `MODEL_MISSING`，不能在转换期报 `GRAPH_WIDGET_MISMATCH`——否则「合法的缺模型」和「自定义节点顺序不同」混成一个错。
 
-### D3 工具与进度
-产出：`server.py` 6 个工具、`jobs.py`、`errors.py`、进度映射。
-验收：fake 上跑通 `run → progress ≥ 3 次 → result`；四类错误都有码。
+### D3 工具与进度 ✅（2026-11-19 完成）
+产出：`server.py` 6 个工具（`comfy_status`/`list_workflows`/`validate`/`run`/`job`/`cancel`）、`jobs.py`（状态机 + 进度加权 + 幂等表）、`errors.py`（10 码 + 异常映射）、`client.py` 的 `event_stream`、fake ComfyUI 的真实执行模拟（ws 帧 + OOM + 普通异常 + 可中断）、`tests/fixtures/ws_frames_real.json`（真机抓帧 25 帧）、`tests/fixtures/registry*`、`scripts/verify_d3.py`。
+验收：103 passed（原 76 + 27）；fake 上 `run → 至少 3 次 progress → result`；六个错误码路径都有用例（"INVALID_PARAM"、"UNKNOWN_WORKFLOW"、"NODE_MISSING"、"MODEL_MISSING" 走预检，"QUEUE_FULL"、"TIMEOUT"、"CUDA_OOM"、"EXECUTION_FAILED"、"INSTANCE_DOWN"、"CANCELED" 走执行）；真机 4060 上 `verify_d3.py` 全绿：一次真实出图 10.8s、同参数第二次 `reused=True`、强制超时返回 `TIMEOUT` + job_id 且队列被 interrupt 清空、ws 进度 27 帧单调到 100。
+备注（D3 的三个真实教训）：
+1. 未捕获异常会被 MCP SDK 包成 `UnexpectedToolError: Error executing tool comfy_run`，栈信息全丢。每个工具必须过一层 `@_guarded`，把领域错误翻成 5 字段信封。
+2. 只处理 `progress` 帧会得到「0, 0, 0, 99」——0.3.60 真正描述进度的是 `progress_state`。
+3. `report_progress` 在没有 request context 时（例如直接 `call_tool` 测试）会抛 `ValueError: Context is not available outside of a request`，上报必须 try/except，不能让进度失败连累任务。
 
 ### D4 交付与恢复
 产出：`resources.py`、`manifest.py`、幂等、重启恢复。
