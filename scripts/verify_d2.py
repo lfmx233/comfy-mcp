@@ -22,9 +22,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from comfy_mcp.client import ComfyClient  # noqa: E402
-from comfy_mcp.config import Instance  # noqa: E402
-from comfy_mcp.registry import RegistryError, apply_params, load_registry, resolve_params  # noqa: E402
-from comfy_mcp.registry import validate_workflow  # noqa: E402
+from comfy_mcp.registry import (  # noqa: E402
+    RegistryError,
+    apply_params,
+    load_registry,
+    resolve_params,
+    validate_workflow,
+)
 
 
 async def main() -> int:
