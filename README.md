@@ -258,6 +258,8 @@ $env:COMFY_MCP_MODELS_DIR="D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
 
 ![demo](demo/contact-sheet.jpg)
 
+*左：SD1.5 文生图 512×512；中：图生图（输入是一张简笔画，denoise 0.55、8 步，所以画风偏平）；右：SDXL 底模 + refiner 768×768。*
+
 ```text
 == 2. 3 个工作流各跑一次 ==
   [ok] txt2img_anime  7af39798e121   8.06s  512x512  420 KB  sha256:b209d0c1442a

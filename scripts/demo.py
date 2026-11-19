@@ -212,18 +212,20 @@ async def make_contact_sheet(session: Session, names: list[str]) -> Path | None:
         return None
     height = 512
     tiles = []
+    sizes = []  # 原图尺寸：面板被统一缩放到 height，标签必须报原始尺寸，否则 768 的图会自称 512
     for path in panels:
         with Image.open(path) as image:
             ratio = height / image.height
+            sizes.append((image.width, image.height))
             tiles.append(image.convert("RGB").resize((max(1, int(image.width * ratio)), height)))
     label = 26
     width = sum(tile.width for tile in tiles) + 12 * (len(tiles) + 1)
     sheet = Image.new("RGB", (width, height + label + 12), (18, 18, 20))
     draw = ImageDraw.Draw(sheet)
     x = 12
-    for tile, name in zip(tiles, [p.stem for p in panels], strict=False):
+    for tile, name, (sw, sh) in zip(tiles, [p.stem for p in panels], sizes, strict=False):
         sheet.paste(tile, (x, 12))
-        draw.text((x + 4, height + 14), f"{name}  {tile.width}x{tile.height}", fill=(230, 230, 230))
+        draw.text((x + 4, height + 14), f"{name}  {sw}x{sh}", fill=(230, 230, 230))
         x += tile.width + 12
     DEMO.mkdir(parents=True, exist_ok=True)
     target = DEMO / "contact-sheet.jpg"
