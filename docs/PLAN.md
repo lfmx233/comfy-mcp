@@ -298,7 +298,7 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 
 产出：`pyproject.toml` 的 PyPI 元数据（PEP 639 的 `license` + `license-files`、4 个 Project-URL、11 个 classifier、`preview` extra 把 Pillow 降成可选依赖）、`server.json`（Registry 清单：`io.github.lfmx233/comfy-mcp`、pypi + stdio、6 个 `environmentVariables`）、`.github/workflows/ci.yml`（3.11 / 3.12 / 3.13 三档，pytest + ruff + build + twine check）、`tests/test_release.py`（5 条）、`docs/RELEASE.md`（构建 → 干净 venv 验证 → PyPI → Registry → 上线后要改的四处）。
 
-验收：`python -m build` 出 `comfy_mcp-0.1.0.dev0-py3-none-any.whl`（52168 B）与 `comfy_mcp-0.1.0.dev0.tar.gz`（350762 B）；`twine check` 两个都 `PASSED`；全新 venv 只装 wheel（没有 Pillow、没有 pytest）后 `comfy-mcp --version` 输出 `comfy-mcp 0.1.0.dev0`；`server.json` 通过 `static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` 校验；149 passed；ruff 全绿。
+验收：`python -m build` 出 `comfy_mcp-0.1.0.dev0-py3-none-any.whl`（52570 B）与 `comfy_mcp-0.1.0.dev0.tar.gz`（359849 B）；`twine check` 两个都 `PASSED`；全新 venv 只装 wheel（没有 Pillow、没有 pytest）后 `comfy-mcp --version` 输出 `comfy-mcp 0.1.0.dev0`；`server.json` 通过 `static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` 校验；149 passed；ruff 全绿。
 
 备注：
 1. 发布动作本身没做：`twine upload` 要 PyPI token，`mcp-publisher publish` 要 GitHub 登录态，两样都不该由 Agent 代持。D6 的边界就画在「产物 + 命令 + 文档」，所以多出 D7。

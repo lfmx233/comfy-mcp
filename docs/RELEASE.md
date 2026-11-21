@@ -28,8 +28,8 @@ python -m twine check dist/*
 `--no-isolation` 可以跳过临时环境、直接用当前 venv 里的 hatchling，本机装了 hatchling 时更快。产物：
 
 ```text
-dist/comfy_mcp-0.1.0.dev0-py3-none-any.whl   52168 bytes
-dist/comfy_mcp-0.1.0.dev0.tar.gz            350762 bytes
+dist/comfy_mcp-0.1.0.dev0-py3-none-any.whl   52570 bytes
+dist/comfy_mcp-0.1.0.dev0.tar.gz            359849 bytes
 Checking dist/comfy_mcp-0.1.0.dev0-py3-none-any.whl: PASSED
 Checking dist/comfy_mcp-0.1.0.dev0.tar.gz: PASSED
 ```
