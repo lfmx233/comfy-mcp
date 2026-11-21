@@ -294,11 +294,22 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 2. `-1` 的 seed 会让「同参数」不成立：SDXL 工作流的 `refiner_seed` 默认 `-1`，每次随机，等于每次换一个 refiner 噪声。要复现就得把它钉成常数 7 并写进 yaml 的 default——「可复现」靠的是参数完整，不是运气。
 3. 冷启动才是真复现：同进程重跑会命中 ComfyUI 的内存节点缓存（0.0s），什么都证明不了。杀进程重启后 `vram_free` 回到 6.94GB，重跑耗时 5.25s、字节 sha256 完全一致，这才说明 manifest 里的参数自己就够用。另外 `runs/checksums.json` 曾被当成 manifest 读，启动时刷 `unsupported schema None` warning，加文件名排除才干净。
 
-### D6 发布
+### D6 可发布产物 ✅（2026-11-21 完成）
 
-### D6 发布
-产出：README 定稿（含对比表、Non-goals）、demo gif、PyPI 包、`server.json` 上架 MCP Registry。
-验收：`uvx comfy-mcp` 一条命令能起；registry 页面可搜到。
+产出：`pyproject.toml` 的 PyPI 元数据（PEP 639 的 `license` + `license-files`、4 个 Project-URL、11 个 classifier、`preview` extra 把 Pillow 降成可选依赖）、`server.json`（Registry 清单：`io.github.lfmx233/comfy-mcp`、pypi + stdio、6 个 `environmentVariables`）、`.github/workflows/ci.yml`（3.11 / 3.12 / 3.13 三档，pytest + ruff + build + twine check）、`tests/test_release.py`（5 条）、`docs/RELEASE.md`（构建 → 干净 venv 验证 → PyPI → Registry → 上线后要改的四处）。
+
+验收：`python -m build` 出 `comfy_mcp-0.1.0.dev0-py3-none-any.whl`（52168 B）与 `comfy_mcp-0.1.0.dev0.tar.gz`（350762 B）；`twine check` 两个都 `PASSED`；全新 venv 只装 wheel（没有 Pillow、没有 pytest）后 `comfy-mcp --version` 输出 `comfy-mcp 0.1.0.dev0`；`server.json` 通过 `static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json` 校验；149 passed；ruff 全绿。
+
+备注：
+1. 发布动作本身没做：`twine upload` 要 PyPI token，`mcp-publisher publish` 要 GitHub 登录态，两样都不该由 Agent 代持。D6 的边界就画在「产物 + 命令 + 文档」，所以多出 D7。
+2. Registry 的 `description` 硬上限 100 字符：第一版写了 128 字符，schema 直接报 `is too long`，压到 89 才过。清单里的字数限制是硬约束，不是简介。
+3. 版本号留 `0.1.0.dev0`，三处一致由 `tests/test_release.py` 盯着。dev 版 `pip install comfy-mcp` 拿不到，得 `--pre`；真想一条 `pip install` 就改成 `0.1.0`，改动点写在 RELEASE.md 第 3 节。
+4. README 里的 demo 拼图换成 absolute URL：GitHub 认相对路径，PyPI 不认，相对路径在包页面上就是一张碎图。
+
+### D7 上线（待凭据）
+
+产出：PyPI 上的 `comfy-mcp`、Registry 里能搜到的 `io.github.lfmx233/comfy-mcp`、README 换成 `pipx install comfy-mcp` / `uvx comfy-mcp` 的正式写法，加 PyPI 与 Registry 徽章。
+验收：干净机器上 `uvx comfy-mcp --check` 一条命令起得来；registry 页面搜得到。
 
 ## 11. 验收清单
 
@@ -311,7 +322,8 @@ return error("TIMEOUT", retryable=True, job_id=job_id)
 - [x] 5 图任务上下文增量 < 20KB（实测 4 图 2127 字节）
 - [x] 杀进程重启后 `comfy_job` 仍可查（实测 job=a93c70843dd1）
 - [x] 首图缩略小于原图（32416 vs 373196 字节）
-- [ ] 无 GPU 环境 `pytest` 全绿，CI 3.11 / 3.12 通过
+- [x] 无 GPU 环境 `pytest` 全绿（149 passed）；CI 工作流写好了，push 到 GitHub 后才会真跑 3.11 / 3.12 / 3.13
+- [x] `python -m build` + `twine check` 通过，干净 venv 装 wheel 能起 CLI（D6）
 - [x] README 一条命令可复现 demo（D5：`scripts/demo.py`，冷启动后 `--repro` 字节一致）
 
 ## 12. 风险与缓解

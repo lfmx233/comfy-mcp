@@ -1,0 +1,62 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.lfmx233/comfy-mcp",
+  "title": "ComfyUI (curated)",
+  "description": "Run whitelisted ComfyUI workflows with live progress, timeouts and a replayable manifest.",
+  "version": "0.1.0.dev0",
+  "websiteUrl": "https://github.com/lfmx233/comfy-mcp",
+  "repository": {
+    "url": "https://github.com/lfmx233/comfy-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "comfy-mcp",
+      "version": "0.1.0.dev0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COMFYUI_URL",
+          "description": "Base URL of the ComfyUI instance when instances.yaml is absent.",
+          "format": "string",
+          "placeholder": "http://127.0.0.1:8188"
+        },
+        {
+          "name": "COMFY_MCP_INSTANCES",
+          "description": "Path to an instances.yaml listing one or more ComfyUI instances.",
+          "format": "filepath",
+          "placeholder": "/home/me/ai/instances.yaml"
+        },
+        {
+          "name": "COMFY_MCP_WORKFLOWS",
+          "description": "Directory holding the registered workflows (<name>.json + <name>.yaml).",
+          "format": "filepath",
+          "placeholder": "/home/me/ai/workflows"
+        },
+        {
+          "name": "COMFY_MCP_RUNS",
+          "description": "Directory where per-job manifests are written and reloaded after a restart.",
+          "format": "filepath",
+          "placeholder": "/home/me/ai/runs"
+        },
+        {
+          "name": "COMFY_MCP_MODELS_DIR",
+          "description": "ComfyUI models/ directory; when set, model files are hashed into the manifest.",
+          "format": "filepath",
+          "placeholder": "/home/me/ComfyUI/models"
+        },
+        {
+          "name": "COMFY_MCP_DEFAULT_TIMEOUT_S",
+          "description": "Default per-run timeout in seconds.",
+          "format": "number",
+          "default": "300"
+        }
+      ]
+    }
+  ]
+}

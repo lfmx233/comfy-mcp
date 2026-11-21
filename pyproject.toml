@@ -1,40 +1,58 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
 name = "comfy-mcp"
 version = "0.1.0.dev0"
-description = "A curated, reproducible MCP server for ComfyUI"
+description = "A curated, reproducible MCP server for ComfyUI: whitelisted workflows, progress, timeouts and a replayable manifest per run"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [{ name = "Liao Ming" }]
-keywords = ["mcp", "comfyui", "agent", "image-generation", "workflow"]
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Liao Ming", email = "239265819+lfmx233@users.noreply.github.com" }]
+keywords = ["mcp", "model-context-protocol", "comfyui", "agent", "image-generation", "workflow", "stable-diffusion"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Graphics",
+  "Typing :: Typed",
 ]
 dependencies = [
   "mcp>=2.3.0",       # ships starlette / uvicorn / pydantic / httpx2
   "httpx2>=2.10.0",   # HTTP client; import name is httpx2, not httpx
   "websockets>=13",
   "pyyaml>=6",
-  "pillow>=10.0  # optional at runtime: previews fall back to the original bytes without it",
 ]
 
 [project.optional-dependencies]
+# Pillow is optional at runtime: previews fall back to the original bytes without it,
+# and image sizes are read from the file headers.
+preview = ["pillow>=10.0"]
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
   "ruff>=0.7",
   "starlette>=0.40",
   "uvicorn>=0.30",
+  "pillow>=10.0",
 ]
 
 [project.scripts]
 comfy-mcp = "comfy_mcp.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/lfmx233/comfy-mcp"
+Repository = "https://github.com/lfmx233/comfy-mcp"
+Issues = "https://github.com/lfmx233/comfy-mcp/issues"
+Changelog = "https://github.com/lfmx233/comfy-mcp/tree/main/iterations"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/comfy_mcp"]

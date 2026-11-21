@@ -28,10 +28,11 @@
 | D3 | 6 个工具 + 进度映射 + 10 个错误码 + 假服务器真执行 | ✅ 2026-11-19 |
 | D4 | 交付、manifest 落盘、重启恢复、模型 sha256、首图缩略与资源链接 | ✅ 2026-11-19 |
 | D5 | 真机端到端 demo：3 个工作流 + 真实进度 + 冷启动复现（本机 4060，全程 57s） | ✅ 2026-11-19 |
-| D6 | 发布（PyPI + MCP Registry） | 🚧 进行中 |
+| D6 | 可发布产物：PyPI 元数据、sdist + wheel、Registry 清单、CI | ✅ 2026-11-21 |
+| D7 | 真发出去：PyPI 上传 + Registry 收录（要凭据，见 [docs/RELEASE.md](docs/RELEASE.md)） | ⏳ 待凭据 |
 
 每个里程碑为什么这么做、踩了哪些坑、怎么验的，都在 [iterations/](iterations/)：
-[D1 骨架](iterations/D1-骨架与地基.md) · [D2 图转换](iterations/D2-图转换与注册表.md) · [D3 工具与进度](iterations/D3-工具与进度.md) · [D4 交付与恢复](iterations/D4-交付与恢复.md) · [D5 真机 Demo](iterations/D5-真机Demo.md)
+[D1 骨架](iterations/D1-骨架与地基.md) · [D2 图转换](iterations/D2-图转换与注册表.md) · [D3 工具与进度](iterations/D3-工具与进度.md) · [D4 交付与恢复](iterations/D4-交付与恢复.md) · [D5 真机 Demo](iterations/D5-真机Demo.md) · [D6 可发布产物](iterations/D6-发布.md)
 
 ## 和官方那个比，差在哪
 
@@ -71,6 +72,22 @@ Comfy Org 的官方实现更全，这点不装看不见：41 个工具、基于 
 server 和 ComfyUI 各用各的 Python 解释器，中间走 HTTP。别把依赖装进整合包那个解释器里：里面压着一堆自定义节点的版本约束，动一个可能崩一片。
 
 ## 安装
+
+还没发到 PyPI，目前只能从源码装，挑一种就行。
+
+**想直接用、不碰源码的**，装进独立环境，不污染系统里那些跑着别的项目的 Python：
+
+```bash
+pipx install git+https://github.com/lfmx233/comfy-mcp
+```
+
+机器上有 uv 的话，连装都不用装，跑完就丢：
+
+```bash
+uvx --from git+https://github.com/lfmx233/comfy-mcp comfy-mcp --check
+```
+
+**要改代码的**，克隆下来建虚拟环境：
 
 ```bash
 git clone https://github.com/lfmx233/comfy-mcp.git
@@ -260,7 +277,7 @@ $env:COMFY_MCP_MODELS_DIR="D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
 .\.venv\Scripts\python.exe scripts\demo.py
 ```
 
-![demo](demo/contact-sheet.jpg)
+![demo](https://github.com/lfmx233/comfy-mcp/raw/main/demo/contact-sheet.jpg)
 
 *左：SD1.5 文生图 512×512；中：图生图，输入是张简笔画，denoise 0.55、8 步，所以画风偏平；右：SDXL 底模加 refiner，768×768。*
 
@@ -463,6 +480,7 @@ D5 的输出在上面「Demo（D5）」那节，完整终端记录在 `demo/tran
 
 ## 版本记录
 
+- `0.1.0.dev0`：D1–D6。sdist 与 wheel 已构建、`twine check` 通过、干净 venv 装得上；PyPI 和 Registry 还没上传，卡在凭据上，步骤全写在 [docs/RELEASE.md](docs/RELEASE.md)。
 - 迭代记录在 [iterations/](iterations/)，一个里程碑一份：目标 → 产出 → 验收 → 踩坑 → 遗留 → 下一步。
 - 每份记录对应一个 commit，出问题能翻回是哪次改动带进来的。
 
