@@ -274,9 +274,11 @@ $env:COMFY_MCP_MODELS_DIR="D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
 .\.venv\Scripts\python.exe scripts\demo.py
 ```
 
-![demo](https://github.com/lfmx233/comfy-mcp/raw/main/demo/contact-sheet.jpg)
-
-*左：SD1.5 文生图 512×512。中：图生图，输入是张简笔画，denoise 0.55、8 步，所以画风偏平。右：SDXL 底模加 refiner，768×768。*
+| 工作流 | 干什么 | 关键参数 | 耗时 | 尺寸 |
+|---|---|---|---|---|
+| `txt2img_anime` | SD1.5 文生图 | seed 424242、8 步、cfg 7 | 8.06s | 512×512 |
+| `img2img` | 拿简笔画重画 | denoise 0.55、8 步、输入 `example.png` | 4.76s | 768×768 |
+| `sdxl_txt2img` | SDXL 底模加 refiner | seed 2026、cfg 5、8 步、refiner_seed 钉成 7 | 33.75s | 768×768 |
 
 ```text
 == 2. 3 个工作流各跑一次 ==
@@ -289,7 +291,7 @@ $env:COMFY_MCP_MODELS_DIR="D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
 DEMO: PASS
 ```
 
-跑完留四样东西：`demo/outputs/*.png` 原图、`demo/contact-sheet.jpg` 上面那张拼图、`demo/report.json`（每个 job 的 id、耗时、字节 sha256、参数）、`demo/transcript.txt`（终端原文）。
+跑完留三样东西：`demo/outputs/*.png` 原图、`demo/report.json`（每个 job 的 id、耗时、字节 sha256、完整参数）、`demo/transcript.txt`（终端原文）。
 
 复现是这一步的重点：
 
