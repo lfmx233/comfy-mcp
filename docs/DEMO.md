@@ -40,7 +40,7 @@ $env:COMFY_MCP_MODELS_DIR = "D:\AIGC\ComfyUI-aki-v2\ComfyUI\models"
 | 2. 跑活 | `comfy_validate` → `comfy_run` → `read_resource` | 三个工作流都过参数白名单、都被接受、都能取回图 |
 | 3. 进度 | 直连 `/ws` 喂 `Progress` | 进度条不是装饰：每个采样点都对应一次真实节点事件 |
 | 4. 复现 | 换 idempotency key 再跑一次 | 同一份 manifest 再来一遍，图的 sha256 不变 |
-| 5. 产物 | `demo/` 下四个文件 | 有东西可以给别人看 |
+| 5. 产物 | `demo/` 下的图、报告、终端记录 | 有东西可以给别人看 |
 
 ## 3. 产物
 
@@ -49,10 +49,11 @@ demo/
   outputs/txt2img_anime.png   512x512   SD1.5 文生图
   outputs/img2img.png         768x768   SD1.5 图生图（denoise 0.55）
   outputs/sdxl_txt2img.png    768x768   SDXL 底模 + refiner
-  contact-sheet.jpg           三张拼一张，README 用
   report.json                 每个 job 的 id / 耗时 / 字节 sha256 / 参数
   transcript.txt              终端输出原文
 ```
+
+`demo.py` 还会在本地拼一张 `contact-sheet.jpg`，但它已经不进仓库了（`.gitignore` 里排掉），README 也不引用它。
 
 `report.json` 里一条记录长这样（真实数字，参数做了省略）：
 

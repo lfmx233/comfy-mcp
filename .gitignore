@@ -15,8 +15,9 @@ pytest-of-*/
 .coverage
 htmlcov/
 
-# Demo artifacts: keep the contact sheet + report, drop the raw PNGs
+# Demo artifacts: keep report + transcript, drop the generated images
 demo/outputs/
+demo/contact-sheet.jpg
 
 # Project runtime artifacts
 runs/

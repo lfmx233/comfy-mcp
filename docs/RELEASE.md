@@ -34,7 +34,7 @@ Checking dist/comfy_mcp-0.1.0.dev0-py3-none-any.whl: PASSED
 Checking dist/comfy_mcp-0.1.0.dev0.tar.gz: PASSED
 ```
 
-wheel 里有 11 个模块，加上 `dist-info/licenses/LICENSE`（PEP 639 的 `license-files`）。sdist 比 wheel 大，是因为它带着 README 引用的 `demo/contact-sheet.jpg` 和迭代文档。
+wheel 里有 11 个模块，加上 `dist-info/licenses/LICENSE`（PEP 639 的 `license-files`）。sdist 比 wheel 大，是因为它带着 README 和 `iterations/` 下的记录。
 
 ## 2. 先验一遍，再上传
 

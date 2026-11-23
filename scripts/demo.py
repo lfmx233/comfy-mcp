@@ -6,7 +6,7 @@
 The full demo leaves four things behind in demo/:
 
     outputs/<workflow>.png   原始输出（未缩放、未重编码）
-    contact-sheet.jpg        三张图拼成一张，给 README 用
+    contact-sheet.jpg        三张图拼成一张，本地看一眼，不入库
     report.json              每个 job 的 id / 耗时 / 字节 sha256 / 参数
     transcript.txt           终端里打印过的每一行
 
