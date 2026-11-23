@@ -7,9 +7,9 @@
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![tests](https://img.shields.io/badge/tests-149%20passed-brightgreen)
 
-## 这是什么
+## ComfyUI 的 MCP server
 
-一个 ComfyUI 的 MCP server。配置好以后，Claude Desktop、Cursor 或者自己写的 Agent 就能跑你注册过的工作流。参数只在你声明的范围里动，跑完留一份能复现的记录。
+配置好以后，Claude Desktop、Cursor 或者自己写的 Agent 就能跑你注册过的工作流。参数只在你声明的范围里动，跑完留一份能复现的记录。
 
 - 只跑 `workflows/` 里注册过的工作流。模型怎么劝都没用。
 - 参数走白名单。yaml 里没声明的字段，Agent 改不了。
@@ -17,24 +17,23 @@
 - 长任务有进度、有超时、有取消。超时不是干等，是真的发 `/interrupt`，再清队列。
 - 出图只内联一张缩略图，其余给 `comfy://` 资源链接。不把 base64 塞进上下文。
 
-官方也有一个 [comfy-mcp](https://github.com/Comfy-Org/comfy-mcp)，41 个工具，还在更新。它解决的是「能不能调」。这里要解决的是另一个问题：一个会自己编参数的模型，能不能放进生产环境跑你的显卡。
+官方也有一个 [comfy-mcp](https://github.com/Comfy-Org/comfy-mcp)，41 个工具，还在更新。这里要解决的是另一个问题：一个会自己编参数的模型，能不能放进生产环境跑你的显卡。
 
 ## 进度
 
-| 里程碑 | 内容 | 状态 |
-|---|---|---|
-| D1 | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
-| D2 | UI→API 图转换 + 工作流注册表（3 个真机工作流） | ✅ 2026-11-19 |
-| D3 | 6 个工具 + 进度映射 + 10 个错误码 + 假服务器真执行 | ✅ 2026-11-19 |
-| D4 | 交付、manifest 落盘、重启恢复、模型 sha256、首图缩略与资源链接 | ✅ 2026-11-19 |
-| D5 | 真机端到端 demo：3 个工作流 + 真实进度 + 冷启动复现（本机 4060，全程 57s） | ✅ 2026-11-19 |
-| D6 | 可发布产物：PyPI 元数据、sdist + wheel、Registry 清单、CI | ✅ 2026-11-21 |
-| D7 | 真发出去：PyPI 上传 + Registry 收录（要凭据，见 [docs/RELEASE.md](docs/RELEASE.md)） | ⏳ 待凭据 |
+| 里程碑 | 内容                                                     | 状态           |
+| --- | ------------------------------------------------------ | ------------ |
+| D1  | 配置 / HTTP+ws 客户端 / `comfy_status` / 假 ComfyUI / 22 个测试 | ✅ 2026-11-19 |
+| D2  | UI→API 图转换 + 工作流注册表（3 个真机工作流）                          | ✅ 2026-11-19 |
+| D3  | 6 个工具 + 进度映射 + 10 个错误码 + 假服务器真执行                       | ✅ 2026-11-19 |
+| D4  | 交付、manifest 落盘、重启恢复、模型 sha256、首图缩略与资源链接                | ✅ 2026-11-20 |
+| D5  | 真机端到端 demo：3 个工作流 + 真实进度 + 冷启动复现（本机 4060，全程 57s）       | ✅ 2026-11-20 |
+| D6  | 可发布产物：PyPI 元数据、sdist + wheel、Registry 清单、CI            | ✅ 2026-11-21 |
 
 每个里程碑为什么这么做、踩了哪些坑、怎么验的，都在 [iterations/](iterations/)：
-[D1 骨架](iterations/D1-骨架与地基.md) · [D2 图转换](iterations/D2-图转换与注册表.md) · [D3 工具与进度](iterations/D3-工具与进度.md) · [D4 交付与恢复](iterations/D4-交付与恢复.md) · [D5 真机 Demo](iterations/D5-真机Demo.md) · [D6 可发布产物](iterations/D6-发布.md)
+[D1 骨架](iterations/D1-骨架与地基.md) · [D2 图转换](iterations/D2-图转换与注册表.md) · [D3 工具与进度](iterations/D3-工具与进度.md) · [D4 交付与恢复](iterations/D4-交付与恢复.md) · [D5 真机 Demo](iterations/D5-真机Demo.md)
 
-## 和官方那个比，差在哪
+## 与官方comfy-mcp的区别
 
 Comfy Org 的官方实现更全：41 个工具、基于 comfy-cli、AGPL 与商业双许可，十一月还在提交。它解决的是「能不能调」。
 
@@ -113,7 +112,7 @@ Fatal Python error: init_import_site: Failed to import the site module
 UnicodeDecodeError: 'gbk' codec can't decode byte 0xaa in position 12: illegal multibyte sequence
 ```
 
-这时候连 `python -c "print(1)"` 都跑不了，`PYTHONUTF8=1` 也救不回来。删掉 `site-packages\_editable_impl_*.pth`，然后按上面常规安装。英文路径下 `-e` 没问题，但没必要赌。
+这时候连 `python -c "print(1)"` 都跑不了，`PYTHONUTF8=1` 也救不回来。如果删掉 `site-packages\_editable_impl_*.pth`，然后按上面常规安装。英文路径下 `-e` 可能没问题，但没必要。
 
 装完验证一下：
 
@@ -126,7 +125,7 @@ comfy-mcp --check       # 逐个实例打印版本 / 队列 / 显存，连不上
 
 ## 配置
 
-配置全靠环境变量，没有第二套语法要学。
+配置全靠环境变量，没有第二套语法。
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
